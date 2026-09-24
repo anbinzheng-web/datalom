@@ -1,0 +1,6 @@
+node_modules
+dist
+.spider
+artifacts
+pnpm-lock.yaml
+src/platforms/tiktok/vendor
