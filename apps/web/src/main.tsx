@@ -150,7 +150,7 @@ function App() {
   if (checking)
     return (
       <div className="login">
-        <div className="logo-symbol">S</div>
+        <div className="logo-symbol">D</div>
         <p>正在连接本地工作台…</p>
       </div>
     );
@@ -159,7 +159,7 @@ function App() {
       <div className="login">
         <div className="login-card">
           <div className="wordmark">
-            <div className="logo-symbol">S</div>spider<span>LOCAL</span>
+            <div className="logo-symbol">D</div>datalom<span>LOCAL</span>
           </div>
           <h1>连接你的 API 工作台</h1>
           <p>账号会话、代理线路与接口研究，都留在你的机器上。</p>
@@ -186,7 +186,7 @@ function App() {
               />
             </label>
             <p className="help">
-              在 Spider 项目目录运行 <code>pnpm auth</code> 获取。
+              在 Datalom 项目目录运行 <code>pnpm auth</code> 获取。
             </p>
             <button className="primary" disabled={!!busy}>
               进入工作台 →
@@ -213,7 +213,7 @@ function App() {
     <div className="app">
       <aside>
         <div className="wordmark">
-          <div className="logo-symbol">S</div>spider
+          <div className="logo-symbol">D</div>datalom
         </div>
         <div className="workspace">API RESEARCH WORKSPACE</div>
         <nav>
@@ -249,13 +249,13 @@ function App() {
               ? "HTTP Worker · 正在运行"
               : "HTTP Worker 未运行 · 任务将等待"}
           </div>
-          <small>spider / v0.1.0</small>
+          <small>datalom / v0.1.0</small>
         </div>
       </aside>
       <main>
         <header>
           <div>
-            <div className="eyebrow">SPIDER / {tab.toUpperCase()}</div>
+            <div className="eyebrow">DATALOM / {tab.toUpperCase()}</div>
             <h1>{headings[tab][0]}</h1>
             <p>{headings[tab][1]}</p>
           </div>
@@ -945,7 +945,7 @@ function App() {
           </section>
         )}
         <footer>
-          SPIDER <span>独立执行 · 证据驱动 · 本地优先</span>
+          DATALOM <span>独立执行 · 证据驱动 · 本地优先</span>
           <a href="/api/openapi.json" target="_blank" rel="noreferrer">
             OpenAPI ↗
           </a>

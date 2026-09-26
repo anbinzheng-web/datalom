@@ -1,6 +1,6 @@
 # Instagram 原始接口
 
-代码、会话、研究工具和测试均在 `src/platforms/instagram/`。生产入口 `tools/native-run.ts` 仅使用独立 HTTP、加密会话和 GOST 线路，不导入 Playwright/CDP。页面研究使用用户提供的 Instagram Profile，目标为公开创作者页面和公开内容。
+代码、会话、研究工具和测试均在 `packages/platform-instagram/src/`。生产入口 `tools/native-run.ts` 仅使用独立 HTTP、加密会话和 GOST 线路，不导入 Playwright/CDP。页面研究使用用户提供的 Instagram Profile，目标为公开创作者页面和公开内容。
 
 ## 本轮真实验证（2026-09-16）
 
@@ -33,8 +33,8 @@ GraphQL 使用页面真实的 `/api/graphql` 与 `/graphql/query`。结果只投
 ## 使用与当前边界
 
 ```sh
-pnpm exec tsx src/platforms/instagram/tools/native-run.ts <profileId> post.comments <captureEvidenceId> '{}' 2
-pnpm exec tsx src/platforms/instagram/tools/native-run.ts <profileId> search.media <captureEvidenceId> '{"query":"soccer"}'
+pnpm exec tsx --conditions=datalom-source research/instagram/tools/native-run.ts <profileId> post.comments <captureEvidenceId> '{}' 2
+pnpm exec tsx --conditions=datalom-source research/instagram/tools/native-run.ts <profileId> search.media <captureEvidenceId> '{"query":"soccer"}'
 ```
 
 详情、主页列表目前绑定已观测对象；评论与搜索分页使用返回游标，不猜测游标。主页帖子/Reels 的继续分页、搜索初页自动衔接分页、标签页、地点页、音频页、Tagged、Stories/Highlights 等尚未完成，不把返回入口或 URL 算作已接通接口。搜索分页上下文应使用对应搜索的样本，不跨关键词重用。当前是本地原始执行器，未接入管理 UI 或 Go 商业网关。

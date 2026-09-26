@@ -1,0 +1,13 @@
+[tools]
+node = '24.11.0'
+pnpm = '10.11.0'
+
+[tasks.check]
+run = 'pnpm check'
+[tasks.test]
+run = 'pnpm test'
+[tasks.build]
+run = 'pnpm build'
+
+[tasks.dev]
+run = "pnpm dev"

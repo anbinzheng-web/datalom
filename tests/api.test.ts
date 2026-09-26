@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildApp, authToken } from "../apps/server/src/app.ts";
+import { buildApp, authToken } from "@datalom/server/app";
 import { fixture } from "./helpers.ts";
 describe("local API", () => {
   it("requires auth and rejects remote origins and DNS rebinding hosts", async () => {

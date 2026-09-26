@@ -1,8 +1,9 @@
+import { dataDirectory } from "@datalom/runtime-node/paths";
 import { chainFixture, proxyGet } from "../tests/proxy-fixture.ts";
-import { startRoute } from "../src/network/route.ts";
+import { startRoute } from "@datalom/network-node/route";
 import { resolve } from "node:path";
 import { writeFileSync, mkdirSync } from "node:fs";
-const dir = resolve(process.env.SPIDER_DATA_DIR ?? ".spider");
+const dir = dataDirectory();
 const chain = await chainFixture();
 const route = await startRoute(
   {

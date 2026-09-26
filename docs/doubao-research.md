@@ -6,7 +6,7 @@
 
 - 使用 Playwright 启动独立 Chrome，未使用 RoxyBrowser，没有登录账号。已有研究访客状态加密保存并复用，没有轮换访客身份或 IP。
 - 浏览器设置 `--no-proxy-server`，HTTP/3 关闭；Node 探针明确不配置代理并清除其进程内代理环境变量。没有改动用户的系统代理配置。本机默认路由为物理网卡 `en0`；未做运营商出口地理归属鉴定。
-- 页面免登录可打开，并自动申请匿名标识。先后通过页面输入框发送两条短消息：“只回复：SPIDER测试成功”和“请只回复：你好”。两次均未取得回答。
+- 页面免登录可打开，并自动申请匿名标识。先后通过页面输入框发送两条短消息：“只回复：DATALOM测试成功”和“请只回复：你好”。两次均未取得回答。
 - 对话实际请求为 **`POST https://www.doubao.com/chat/completion`**，响应类型 `text/event-stream`。
 - 返回 HTTP 200，但流中只有 `SSE_HEARTBEAT → STREAM_ERROR → SSE_REPLY_END`，业务错误码 **710022002**。提示为“当前服务访问频繁，请稍后重试”；未取得模型回答。
 - 确认拒绝后停止发送对话，继续离线脚本分析和只读限流查询。
@@ -64,7 +64,7 @@
 
 下一项有价值的实验是取得同一访客、同一出口的正常页面成功对照，保留会话、响应和脚本版本，再逐项定位必要的协议依赖。当前不通过轮换身份/IP 重置额度，也不进行高频撞限流实验。
 
-每次研究使用独立 `requestId`，请求、响应、页面快照、源码和异常写入 `.spider/spider.sqlite` 的加密诊断事件。总结已写回 `doubao-diagnosis`，当前状态为 `successful_browser_baseline_captured`，不是生产适配器完成。普通报告不含 Cookie、完整签名、会话密钥、回答正文或会话 ID。
+每次研究使用独立 `requestId`，请求、响应、页面快照、源码和异常写入 `.datalom/datalom.sqlite` 的加密诊断事件。总结已写回 `doubao-diagnosis`，当前状态为 `successful_browser_baseline_captured`，不是生产适配器完成。普通报告不含 Cookie、完整签名、会话密钥、回答正文或会话 ID。
 
 本次采集器补齐 IndexedDB、sessionStorage、请求开始事件和重复响应头记录，修复关闭浏览器时的异常捕获；预检缺失或明确限流时停止发送。被动页面采集及正常退出已验证，没有新增聊天请求。
 
@@ -83,10 +83,10 @@
 ## 复现入口
 
 ```sh
-pnpm exec tsx src/platforms/doubao/tools/research.ts inspect # 无界面，只观察页面
-pnpm exec tsx src/platforms/doubao/tools/probe.ts            # 纯 Node 直连，只读预检一次
-pnpm exec tsx src/platforms/doubao/tools/scripts.ts          # 分析实际加载过的公开脚本，优先用本机证据缓存
-pnpm exec tsx src/platforms/doubao/tools/report.ts           # 从已有证据生成报告，不发送聊天
+pnpm exec tsx --conditions=datalom-source research/doubao/tools/research.ts inspect # 无界面，只观察页面
+pnpm exec tsx --conditions=datalom-source research/doubao/tools/probe.ts            # 纯 Node 直连，只读预检一次
+pnpm exec tsx --conditions=datalom-source research/doubao/tools/scripts.ts          # 分析实际加载过的公开脚本，优先用本机证据缓存
+pnpm exec tsx --conditions=datalom-source research/doubao/tools/report.ts           # 从已有证据生成报告，不发送聊天
 pnpm diagnose raw <eventId>                   # 原始证据仅解密到本机受限文件
 ```
 
@@ -96,7 +96,7 @@ pnpm diagnose raw <eventId>                   # 原始证据仅解密到本机�
 
 ## 本机诊断对照工具
 
-`pnpm exec tsx src/platforms/doubao/tools/import-har.ts /本机路径/reference.har` 仅导入豆包域名记录，原始内容加密保存，普通报告只展示字段差异。多条对话必须在最后指定从 0 开始的索引；没有响应正文或只有结束事件不算成功。Chrome 脱敏导出可能省略 Cookie，缺失不能判定为实际未发送。工具未取得真实成功 HAR，离线测试不代表根因已查明。
+`pnpm exec tsx --conditions=datalom-source research/doubao/tools/import-har.ts /本机路径/reference.har` 仅导入豆包域名记录，原始内容加密保存，普通报告只展示字段差异。多条对话必须在最后指定从 0 开始的索引；没有响应正文或只有结束事件不算成功。Chrome 脱敏导出可能省略 Cookie，缺失不能判定为实际未发送。工具未取得真实成功 HAR，离线测试不代表根因已查明。
 
 ## 本机有界面 Chrome + CDP 对照
 

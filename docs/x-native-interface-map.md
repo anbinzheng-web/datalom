@@ -1,6 +1,6 @@
 # X 原始公开数据接口（2026-09-17）
 
-代码集中在 `src/platforms/x/`，当前版本 `x-native-0.2.1`。本阶段交付原始接口执行 CLI、会话提取、代理验证、证据和诊断工具；尚未接入管理 UI、持久化业务任务或 Go 网关。普通执行进程不启动浏览器、不连接 CDP、不调用浏览器签名服务。
+代码集中在 `packages/platform-x/src/`，当前版本 `x-native-0.2.1`。本阶段交付原始接口执行 CLI、会话提取、代理验证、证据和诊断工具；尚未接入管理 UI、持久化业务任务或 Go 网关。普通执行进程不启动浏览器、不连接 CDP、不调用浏览器签名服务。
 
 ## 实测接口
 
@@ -87,13 +87,13 @@
 均从仓库根目录执行。生产命令不需要打开 Roxy；`extract`/`observe`/`verify-route`/`verify-browserless` 属于研究工具。
 
 ```sh
-pnpm exec tsx src/platforms/x/tools/extract.ts <dirid>
-pnpm exec tsx src/platforms/x/tools/verify-route.ts <dirid>
-pnpm exec tsx src/platforms/x/tools/observe.ts <dirid>
-pnpm exec tsx src/platforms/x/tools/native-run.ts <dirid> profile.posts <captureEvidenceId> '{"userId":"11348282"}' 3
-pnpm exec tsx src/platforms/x/tools/native-run.ts <dirid> post.conversation <captureEvidenceId> '{"focalTweetId":"2099883890223501613"}' 3
-pnpm exec tsx src/platforms/x/tools/native-run.ts <dirid> post.conversation <captureEvidenceId> '{"_continuationEvidenceId":"<resultEvidenceId>","_moduleIndex":0}' 2
-pnpm exec tsx src/platforms/x/tools/diagnose.ts <requestId>
+pnpm exec tsx --conditions=datalom-source research/x/tools/extract.ts <dirid>
+pnpm exec tsx --conditions=datalom-source research/x/tools/verify-route.ts <dirid>
+pnpm exec tsx --conditions=datalom-source research/x/tools/observe.ts <dirid>
+pnpm exec tsx --conditions=datalom-source research/x/tools/native-run.ts <dirid> profile.posts <captureEvidenceId> '{"userId":"11348282"}' 3
+pnpm exec tsx --conditions=datalom-source research/x/tools/native-run.ts <dirid> post.conversation <captureEvidenceId> '{"focalTweetId":"2099883890223501613"}' 3
+pnpm exec tsx --conditions=datalom-source research/x/tools/native-run.ts <dirid> post.conversation <captureEvidenceId> '{"_continuationEvidenceId":"<resultEvidenceId>","_moduleIndex":0}' 2
+pnpm exec tsx --conditions=datalom-source research/x/tools/diagnose.ts <requestId>
 ```
 
 普通续页使用 `_continuationEvidenceId`，省略 `_moduleIndex`；分支续页显式指定索引。续页证据须属于同一账号和操作，不允许更换目标或排序。页面结果写入加密诊断库，普通 `artifacts/x/independent-*.json` 仅含状态、计数、耗时、证据 ID 等脱敏摘要。

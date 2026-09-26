@@ -1,7 +1,7 @@
-import { openStore } from "../../../src/core/runtime.ts";
+import { openStore } from "@datalom/storage-node/runtime";
 import { Runner } from "./runner.ts";
 import { randomUUID } from "node:crypto";
-import { errorRecord } from "../../../src/core/diagnostics.ts";
+import { errorRecord } from "@datalom/runtime-node/diagnostics";
 const store = openStore();
 const workerId = randomUUID();
 store.heartbeat(workerId);
@@ -16,7 +16,7 @@ const heartbeat = setInterval(() => {
   else store.removeWorker(workerId);
 }, 5000);
 runner.start();
-console.log("Spider HTTP worker ready (no browser dependencies)");
+console.log("Datalom HTTP worker ready (no browser dependencies)");
 let stopping = false;
 const fatal = (error: unknown) => {
   try {

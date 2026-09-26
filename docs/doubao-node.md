@@ -25,7 +25,7 @@ pnpm doubao:node sign-check my-guest
 
 导入只读取加密证据，不连接浏览器；拒绝账号 Cookie。历史 Cookie 请求头没有完整过期属性，导入不能恢复其原始属性；未来失效必须作为失效处理，不能宣称长期可用。
 
-初次签名会通过 HTTP 下载官方 BDMS，校验固定 SHA-256 后加密缓存到当前数据目录。后续复用缓存；哈希变化立即拒绝执行。`sign-check` 不发送聊天，检查 Node 环境下新签名产生且请求参数未被意外改写；缓存缺失时可能下载 SDK。源码入口为 `src/platforms/doubao/signer.ts`，官方源码来源见 `docs/third-party.md`。
+初次签名会通过 HTTP 下载官方 BDMS，校验固定 SHA-256 后加密缓存到当前数据目录。后续复用缓存；哈希变化立即拒绝执行。`sign-check` 不发送聊天，检查 Node 环境下新签名产生且请求参数未被意外改写；缓存缺失时可能下载 SDK。源码入口为 `packages/platform-doubao/src/signer.ts`，官方源码来源见 `docs/third-party.md`。
 
 ## Token 刷新
 

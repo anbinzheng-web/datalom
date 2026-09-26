@@ -3,4 +3,6 @@ dist
 .spider
 artifacts
 pnpm-lock.yaml
-src/platforms/tiktok/vendor
+packages/platform-tiktok/src/vendor
+
+.datalom/

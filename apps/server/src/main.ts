@@ -1,7 +1,9 @@
+import { fileURLToPath } from "node:url";
+import { nodeLoaderArgs } from "@datalom/runtime-node/paths";
 import { spawn } from "node:child_process";
-import { openStore } from "../../../src/core/runtime.ts";
+import { openStore } from "@datalom/storage-node/runtime";
 import { buildApp } from "./app.ts";
-import { errorRecord } from "../../../src/core/diagnostics.ts";
+import { errorRecord } from "@datalom/runtime-node/diagnostics";
 const store = openStore();
 const app = await buildApp(store, { logger: true });
 await app.listen({ host: "127.0.0.1", port: 4317 });
@@ -11,10 +13,13 @@ store.diagnostics.event({}, "server", "started", {
 });
 const worker = spawn(
   process.execPath,
-  ["--import", "tsx", "apps/worker/src/main.ts"],
+  [
+    ...nodeLoaderArgs(),
+    fileURLToPath(import.meta.resolve("@datalom/worker/main")),
+  ],
   { stdio: "inherit", env: process.env },
 );
-console.log("Spider: http://127.0.0.1:4317 · 使用 pnpm auth 读取本机访问令牌");
+console.log("Datalom: http://127.0.0.1:4317 · 使用 pnpm auth 读取本机访问令牌");
 worker.on("exit", (code, signal) => {
   if (!closing)
     store.diagnostics.event({}, "worker-process", "exited", {
@@ -23,7 +28,7 @@ worker.on("exit", (code, signal) => {
       signal,
     });
   if (code)
-    app.log.error({ code }, "Worker exited; restart Spider to recover queue");
+    app.log.error({ code }, "Worker exited; restart Datalom to recover queue");
 });
 worker.on("error", (error) =>
   store.diagnostics.event({}, "worker-process", "failed", {

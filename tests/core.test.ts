@@ -2,8 +2,8 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { randomBytes } from "node:crypto";
-import { Vault } from "../src/core/crypto.ts";
-import { Store } from "../src/core/store.ts";
+import { Vault } from "@datalom/storage-node/crypto";
+import { Store } from "@datalom/storage-node/store";
 import { fixture, session } from "./helpers.ts";
 describe("encrypted account lifecycle", () => {
   it("authenticates both ciphertext and record identity", () => {
@@ -17,7 +17,7 @@ describe("encrypted account lifecycle", () => {
     const f = fixture();
     try {
       f.store.sql.pragma("wal_checkpoint(TRUNCATE)");
-      const bytes = readFileSync(join(f.dir, "spider.sqlite")).toString();
+      const bytes = readFileSync(join(f.dir, "datalom.sqlite")).toString();
       expect(bytes).not.toContain("secret-cookie-fixture");
       expect(bytes).not.toContain("secret-proxy-fixture");
       expect(JSON.stringify(f.store.listAccounts())).not.toContain("secret");

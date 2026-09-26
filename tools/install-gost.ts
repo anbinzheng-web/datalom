@@ -1,3 +1,4 @@
+import { dataDirectory } from "@datalom/runtime-node/paths";
 import { createHash } from "node:crypto";
 import { mkdirSync, writeFileSync, chmodSync, unlinkSync } from "node:fs";
 import { resolve, join } from "node:path";
@@ -6,8 +7,8 @@ const version = "3.3.0";
 const arch =
   process.arch === "arm64" ? "arm64" : process.arch === "x64" ? "amd64" : null;
 if (!arch || !["darwin", "linux"].includes(process.platform))
-  throw new Error("请安装 GOST v3 并通过 SPIDER_GOST_BIN 指定路径");
-const dir = resolve(process.env.SPIDER_DATA_DIR ?? ".spider", "bin");
+  throw new Error("请安装 GOST v3 并通过 DATALOM_GOST_BIN 指定路径");
+const dir = resolve(dataDirectory(), "bin");
 mkdirSync(dir, { recursive: true, mode: 0o700 });
 const name = `gost_${version}_${process.platform}_${arch}.tar.gz`,
   base = `https://github.com/go-gost/gost/releases/download/v${version}/`;

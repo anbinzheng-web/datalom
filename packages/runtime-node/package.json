@@ -1,0 +1,20 @@
+{
+  "name": "@datalom/runtime-node",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./src/*.ts",
+      "datalom-source": "./src/*.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "check": "tsc --noEmit -p tsconfig.json",
+    "build": "node ../../tools/build-package.mjs"
+  },
+  "dependencies": {
+    "@datalom/contracts-ts": "workspace:*"
+  }
+}

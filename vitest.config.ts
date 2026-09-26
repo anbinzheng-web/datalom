@@ -1,7 +1,10 @@
 import { defineConfig } from "vitest/config";
 export default defineConfig({
+  resolve: { conditions: ["datalom-source"] },
+  ssr: { resolve: { conditions: ["datalom-source"] } },
   test: {
-    include: ["tests/**/*.test.ts", "src/platforms/*/tests/**/*.test.ts"],
+    server: { deps: { inline: [/^@datalom\//] } },
+    include: ["tests/**/*.test.ts", "packages/*/src/tests/**/*.test.ts"],
     testTimeout: 15000,
   },
 });

@@ -1,3 +1,5 @@
+import { apiContract } from "@datalom/contracts-ts";
+import { repositoryRoot } from "@datalom/runtime-node/paths";
 import Fastify from "fastify";
 import swagger from "@fastify/swagger";
 import staticFiles from "@fastify/static";
@@ -5,28 +7,19 @@ import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { CookieJar } from "tough-cookie";
-import { Store } from "../../../src/core/store.ts";
+import { Store } from "@datalom/storage-node/store";
 import {
-  SpiderError,
+  DatalomError,
   safeError,
   type RouteConfig,
   type TaskInput,
-} from "../../../src/core/contracts.ts";
-import {
-  RoxyConnector,
-  type RoxyConfig,
-} from "../../../src/platforms/tiktok/research/roxy.ts";
-import {
-  startRoute,
-  validateProxy,
-} from "../../../src/network/route.ts";
-import { HttpTransport } from "../../../src/network/transport.ts";
-import { normalizeVideo } from "../../../src/platforms/tiktok/adapter.ts";
-import { prepareAccount } from "../../../src/platforms/tiktok/research/prepare.ts";
-import {
-  errorRecord,
-  type Trace,
-} from "../../../src/core/diagnostics.ts";
+} from "@datalom/runtime-node/contracts";
+import { RoxyConnector, type RoxyConfig } from "@datalom/research-tiktok/roxy";
+import { startRoute, validateProxy } from "@datalom/network-node/route";
+import { HttpTransport } from "@datalom/network-node/transport";
+import { normalizeVideo } from "@datalom/platform-tiktok/adapter";
+import { prepareAccount } from "@datalom/research-tiktok/prepare";
+import { errorRecord, type Trace } from "@datalom/runtime-node/diagnostics";
 
 const string = { type: "string" };
 const idParams = {
@@ -35,21 +28,7 @@ const idParams = {
   properties: { id: string },
   additionalProperties: false,
 };
-const taskBody = {
-  type: "object",
-  additionalProperties: false,
-  required: ["accountId", "operation", "video"],
-  properties: {
-    accountId: string,
-    operation: { enum: ["video.detail", "video.comments"] },
-    video: { type: "string", maxLength: 2048 },
-    cursor: { type: "string", maxLength: 100 },
-    count: { type: "integer", minimum: 1, maximum: 50 },
-    maxPages: { type: "integer", minimum: 1, maximum: 100 },
-    requestId: { type: "string", minLength: 8, maxLength: 100 },
-    deadline: { type: "integer" },
-  },
-};
+const taskBody = apiContract.components.schemas.TaskSubmission;
 const defaultConfig: RoxyConfig = {
   host: "http://127.0.0.1:50000",
   workspaceId: "",
@@ -92,7 +71,7 @@ export async function buildApp(
     };
   await app.register(swagger, {
     openapi: {
-      info: { title: "Spider local API", version: "0.1.0" },
+      info: { title: "Datalom local API", version: "0.1.0" },
       components: {
         securitySchemes: { localToken: { type: "http", scheme: "bearer" } },
       },
@@ -137,8 +116,8 @@ export async function buildApp(
         req.headers.cookie
           ?.split(";")
           .map((x) => x.trim())
-          .find((x) => x.startsWith("spider_session="))
-          ?.slice(15) ?? "";
+          .find((x) => x.startsWith("datalom_session="))
+          ?.slice("datalom_session=".length) ?? "";
       const bearer = req.headers.authorization?.startsWith("Bearer ")
         ? req.headers.authorization.slice(7)
         : "";
@@ -204,7 +183,11 @@ export async function buildApp(
         },
       );
   });
-  app.get("/api/health", async () => ({ ok: true, version: "0.1.0" }));
+  app.get(
+    "/api/health",
+    { schema: { response: { 200: apiContract.components.schemas.Health } } },
+    async () => ({ ok: true, version: "0.1.0" }),
+  );
   app.post(
     "/api/auth",
     {
@@ -222,7 +205,7 @@ export async function buildApp(
         return reply.code(401).send({ error: { message: "访问令牌不正确" } });
       reply.header(
         "Set-Cookie",
-        `spider_session=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=86400`,
+        `datalom_session=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=86400`,
       );
       return { ok: true };
     },
@@ -230,7 +213,7 @@ export async function buildApp(
   app.post("/api/logout", async (_, reply) => {
     reply.header(
       "Set-Cookie",
-      "spider_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0",
+      "datalom_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0",
     );
     return { ok: true };
   });
@@ -401,7 +384,7 @@ export async function buildApp(
         a = store.getAccount(id),
         lease = store.lease(id, true);
       if (!lease)
-        throw new SpiderError("CONFLICT", "账号正在执行、冷却或已禁用");
+        throw new DatalomError("CONFLICT", "账号正在执行、冷却或已禁用");
       let handle;
       const trace: Trace = (stage, outcome, payload, code) => {
         store.diagnostics.event(
@@ -429,10 +412,10 @@ export async function buildApp(
         try {
           ip = JSON.parse(r.body).ip;
         } catch {
-          throw new SpiderError("PROXY_UNAVAILABLE", "出口检测返回无效响应");
+          throw new DatalomError("PROXY_UNAVAILABLE", "出口检测返回无效响应");
         }
         if (r.status !== 200 || !ip || !/^[\da-f.:]+$/i.test(ip))
-          throw new SpiderError("PROXY_UNAVAILABLE", "无法确认代理出口");
+          throw new DatalomError("PROXY_UNAVAILABLE", "无法确认代理出口");
         s.route!.observedIp = ip;
         const match = !!s.route!.expectedIp && s.route!.expectedIp === ip;
         s.route!.verifiedAt = match ? Date.now() : undefined;
@@ -452,20 +435,49 @@ export async function buildApp(
       }
     },
   );
-  app.post("/api/tasks", { schema: { body: taskBody } }, async (req, reply) => {
-    const { requestId, deadline, ...input } = req.body as TaskInput & {
-      requestId?: string;
-      deadline?: number;
-    };
-    normalizeVideo(input.video);
-    if (deadline && (deadline <= Date.now() || deadline > Date.now() + 3600000))
-      throw new SpiderError("INVALID_INPUT", "截止时间应在未来一小时内");
-    reply.code(202);
-    return store.enqueue(input, requestId, deadline);
-  });
-  app.get("/api/tasks", async () => store.listTasks());
-  app.get("/api/tasks/:id", { schema: { params: idParams } }, async (req) =>
-    store.task((req.params as any).id),
+  app.post(
+    "/api/tasks",
+    {
+      schema: {
+        body: taskBody,
+        response: { 202: apiContract.components.schemas.Task },
+      },
+    },
+    async (req, reply) => {
+      const { requestId, deadline, ...input } = req.body as TaskInput & {
+        requestId?: string;
+        deadline?: number;
+      };
+      normalizeVideo(input.video);
+      if (
+        deadline &&
+        (deadline <= Date.now() || deadline > Date.now() + 3600000)
+      )
+        throw new DatalomError("INVALID_INPUT", "截止时间应在未来一小时内");
+      reply.code(202);
+      return store.enqueue(input, requestId, deadline);
+    },
+  );
+  app.get(
+    "/api/tasks",
+    {
+      schema: {
+        response: {
+          200: { type: "array", items: apiContract.components.schemas.Task },
+        },
+      },
+    },
+    async () => store.listTasks(),
+  );
+  app.get(
+    "/api/tasks/:id",
+    {
+      schema: {
+        params: idParams,
+        response: { 200: apiContract.components.schemas.Task },
+      },
+    },
+    async (req) => store.task((req.params as any).id),
   );
   app.get("/api/diagnostics/events", async () => store.diagnostics.events());
   app.get(
@@ -524,7 +536,12 @@ export async function buildApp(
   for (const operation of ["video.detail", "video.comments"] as const) {
     app.post(
       `/api/v1/tiktok/${operation === "video.detail" ? "video" : "comments"}`,
-      { schema: { body: { ...taskBody, required: ["accountId", "video"] } } },
+      {
+        schema: {
+          body: apiContract.components.schemas.TikTokSubmission,
+          response: { 202: apiContract.components.schemas.Task },
+        },
+      },
       async (req, reply) => {
         const { requestId, deadline, ...input } = req.body as any;
         normalizeVideo(input.video);
@@ -532,13 +549,13 @@ export async function buildApp(
           deadline &&
           (deadline <= Date.now() || deadline > Date.now() + 3600000)
         )
-          throw new SpiderError("INVALID_INPUT", "截止时间应在未来一小时内");
+          throw new DatalomError("INVALID_INPUT", "截止时间应在未来一小时内");
         reply.code(202);
         return store.enqueue({ ...input, operation }, requestId, deadline);
       },
     );
   }
-  const web = resolve("dist/web");
+  const web = resolve(repositoryRoot, "dist/web");
   if (existsSync(web)) {
     await app.register(staticFiles, { root: web });
     app.setNotFoundHandler((req, reply) =>

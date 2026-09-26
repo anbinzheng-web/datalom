@@ -2,9 +2,9 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { randomBytes } from "node:crypto";
-import { Store } from "../src/core/store.ts";
-import { Vault } from "../src/core/crypto.ts";
-import type { SessionSecret } from "../src/core/contracts.ts";
+import { Store } from "@datalom/storage-node/store";
+import { Vault } from "@datalom/storage-node/crypto";
+import type { SessionSecret } from "@datalom/runtime-node/contracts";
 export const session = (): SessionSecret => ({
   cookies: [
     {
@@ -39,7 +39,7 @@ export const session = (): SessionSecret => ({
   },
 });
 export function fixture() {
-  const dir = mkdtempSync(join(tmpdir(), "spider-test-")),
+  const dir = mkdtempSync(join(tmpdir(), "datalom-test-")),
     key = randomBytes(32),
     store = new Store(dir, new Vault(key));
   return {

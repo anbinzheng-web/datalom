@@ -1,0 +1,26 @@
+{
+  "name": "@datalom/platform-facebook",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./src/*.ts",
+      "datalom-source": "./src/*.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "check": "tsc --noEmit -p tsconfig.json",
+    "build": "node ../../tools/build-package.mjs"
+  },
+  "dependencies": {
+    "@datalom/network-node": "workspace:*",
+    "@datalom/runtime-node": "workspace:*",
+    "@datalom/storage-node": "workspace:*",
+    "impit": "0.14.5"
+  },
+  "devDependencies": {
+    "vitest": "^3.2.0"
+  }
+}

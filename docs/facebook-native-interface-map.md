@@ -56,7 +56,7 @@ Marketplace 推荐列表采用 Relay `$stream$` 连续数组追加与 `$defer$` 
 关闭浏览器证明：`artifacts/facebook/browserless-c481e735-1ae1-476d-89fb-4de7d43bb894.json`，原始商品详情请求期间 Profile 前后均确认为关闭，随后恢复窗口。
 
 ```sh
-pnpm exec tsx src/platforms/facebook/tools/native-run.ts <profileId> marketplace.search e99e5481-33e2-4551-a799-5490e3d5e89a '{}' 2
+pnpm exec tsx --conditions=datalom-source research/facebook/tools/native-run.ts <profileId> marketplace.search e99e5481-33e2-4551-a799-5490e3d5e89a '{}' 2
 ```
 
 边界：地域、半径、价格、排序和分类切换尚未逐项独立验收；卖家库存后续分页、商品视频分支和评分明细尚未验证。之前主页时间线的字段错误仍单独保留，不能称 Facebook 所有原始接口均已完成。

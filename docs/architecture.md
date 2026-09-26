@@ -1,12 +1,12 @@
-# Spider 架构与边界
+# Datalom 架构与边界
 
 ## 执行面和研究面
 
-浏览器连接器只由管理服务和研究 CLI 引用。生产入口 `apps/worker/src/main.ts` 的依赖图不包含 Playwright、RoxyBrowser SDK 或 CDP；架构测试检查该约束。签名在短生命周期 Node 子进程执行，输入经过 IPC，环境只保留 PATH，不传入浏览器地址、API Key 或数据库主密钥。
+浏览器连接器只由管理服务和研究 CLI 引用。执行代码位于 `packages/platform-*`，浏览器研究代码位于 `research/*`。生产入口 `apps/worker/src/main.ts` 的依赖图不包含 Playwright、RoxyBrowser SDK 或 CDP；架构测试检查该约束。签名在短生命周期 Node 子进程执行，输入经过 IPC，环境只保留 PATH，不传入浏览器地址、API Key 或数据库主密钥。
 
 `PlatformAdapter.execute()` 接收明确业务参数、会话与 `Transport`，返回数据和分页。`Transport.request()` 只接受平台允许的 HTTPS 主机，拒绝自动重定向；签名后的 URL 原样发送，禁止二次 URLSearchParams 规范化。生产不接受调用者提供任意 URL、请求头、Cookie 或脚本。
 
-服务当前使用版本化 JSON/OpenAPI 契约；Go 网关未来承接鉴权、配额、计量、账单，再调用 Spider 内部任务接口。无须重写平台签名和解析实现。多节点阶段才迁移 PostgreSQL 与集中队列、租约；SQLite 文件不跨机器共享。
+服务当前使用版本化 JSON/OpenAPI 契约；Go 网关未来承接鉴权、配额、计量、账单，再调用 Datalom 内部任务接口。无须重写平台签名和解析实现。多节点阶段才迁移 PostgreSQL 与集中队列、租约；SQLite 文件不跨机器共享。
 
 ## 会话与凭据
 
@@ -58,3 +58,5 @@ SQLite WAL + `BEGIN IMMEDIATE` 原子领取任务和账号租约。单账号串�
 - 任务结果保留 adapterVersion，升级前用真实样本回归；当前代码版本回退同时保留旧证据，不修改历史结果。
 
 未实现云端多租户、计费、自动凭据更新或无限平台适配。后续容量验证需覆盖长期运行、跨网络区域和实际账号限制，再制定可售卖的服务等级。
+
+工程包边界、构建和跨语言接入见 [monorepo 指南](monorepo.md)。

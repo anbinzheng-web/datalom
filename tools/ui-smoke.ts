@@ -1,7 +1,7 @@
 import { chromium } from "playwright";
 import assert from "node:assert/strict";
 import { mkdirSync, writeFileSync } from "node:fs";
-import { buildApp, authToken } from "../apps/server/src/app.ts";
+import { buildApp, authToken } from "@datalom/server/app";
 import { fixture } from "../tests/helpers.ts";
 const f = fixture(),
   app = await buildApp(f.store);
@@ -96,7 +96,7 @@ try {
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "导出排查报告" }).click();
   const download = await downloadPromise;
-  assert(download.suggestedFilename().startsWith("spider-diagnostics-"));
+  assert(download.suggestedFilename().startsWith("datalom-diagnostics-"));
   await page.screenshot({
     path: "artifacts/ui-diagnostics.png",
     fullPage: true,

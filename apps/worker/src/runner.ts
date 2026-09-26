@@ -1,20 +1,20 @@
-import { Store } from "../../../src/core/store.ts";
+import { Store } from "@datalom/storage-node/store";
 import {
-  SpiderError,
+  DatalomError,
   safeError,
   type PlatformAdapter,
   type SessionSecret,
   type Transport,
-} from "../../../src/core/contracts.ts";
-import { startRoute } from "../../../src/network/route.ts";
-import { cookieJar } from "../../../src/network/cookies.ts";
-import { HttpTransport } from "../../../src/network/transport.ts";
-import { TikTokAdapter } from "../../../src/platforms/tiktok/adapter.ts";
+} from "@datalom/runtime-node/contracts";
+import { startRoute } from "@datalom/network-node/route";
+import { cookieJar } from "@datalom/network-node/cookies";
+import { HttpTransport } from "@datalom/network-node/transport";
+import { TikTokAdapter } from "@datalom/platform-tiktok/adapter";
 import {
   errorRecord,
   type Trace,
   type TraceContext,
-} from "../../../src/core/diagnostics.ts";
+} from "@datalom/runtime-node/diagnostics";
 import { createHash } from "node:crypto";
 
 export async function openTransport(
@@ -23,7 +23,7 @@ export async function openTransport(
   trace?: Trace,
 ) {
   if (!session.route?.verifiedAt)
-    throw new SpiderError(
+    throw new DatalomError(
       "PROXY_UNAVAILABLE",
       "请先验证账号代理线路与 Profile 出口一致性",
     );
@@ -70,7 +70,7 @@ export class Runner {
       /* emergency() reports a fixed secret-free fatal message. */
     }
     process.stderr.write(
-      "SPIDER_WORKER_HALTED: inspect encrypted diagnostics before restarting.\n",
+      "DATALOM_WORKER_HALTED: inspect encrypted diagnostics before restarting.\n",
     );
   }
   constructor(
@@ -205,12 +205,12 @@ export class Runner {
       for (let page = 0; page < maxPages; page++) {
         traceContext.page = page + 1;
         if (controller.signal.aborted)
-          throw new SpiderError(
+          throw new DatalomError(
             Date.now() > task.deadline ? "DEADLINE" : "CANCELLED",
             "任务已取消或到达截止时间",
           );
         if (this.store.getAccount(accountId).status === "disabled")
-          throw new SpiderError("CANCELLED", "账号已禁用");
+          throw new DatalomError("CANCELLED", "账号已禁用");
         const wait = Math.max(
           0,
           this.store.getAccount(accountId).nextAllowedAt - Date.now(),
@@ -223,7 +223,7 @@ export class Runner {
             }, wait);
             const abort = () => {
               clearTimeout(timer);
-              reject(new SpiderError("CANCELLED", "任务已取消"));
+              reject(new DatalomError("CANCELLED", "任务已取消"));
             };
             controller.signal.addEventListener("abort", abort, { once: true });
           });
@@ -243,7 +243,7 @@ export class Runner {
             if (rateWait)
               await new Promise<void>((resolve, reject) => {
                 if (controller.signal.aborted) {
-                  reject(new SpiderError("CANCELLED", "任务已取消"));
+                  reject(new DatalomError("CANCELLED", "任务已取消"));
                   return;
                 }
                 const timer = setTimeout(() => {
@@ -252,14 +252,14 @@ export class Runner {
                 }, rateWait);
                 const abort = () => {
                   clearTimeout(timer);
-                  reject(new SpiderError("CANCELLED", "任务已取消"));
+                  reject(new DatalomError("CANCELLED", "任务已取消"));
                 };
                 controller.signal.addEventListener("abort", abort, {
                   once: true,
                 });
               });
             if (controller.signal.aborted)
-              throw new SpiderError("CANCELLED", "任务已取消");
+              throw new DatalomError("CANCELLED", "任务已取消");
             result = await this.adapter.execute(
               { ...task.input, cursor },
               context,
@@ -269,7 +269,7 @@ export class Runner {
           } catch (e) {
             const classified = safeError(e);
             const retry =
-              e instanceof SpiderError && e.code === "NETWORK" && attempt === 0;
+              e instanceof DatalomError && e.code === "NETWORK" && attempt === 0;
             const failedStage = currentStage;
             failedAt = failedStage;
             trace(
@@ -279,7 +279,7 @@ export class Runner {
               classified.code,
             );
             if (
-              !(e instanceof SpiderError) ||
+              !(e instanceof DatalomError) ||
               e.code !== "NETWORK" ||
               attempt === 1
             )
@@ -320,7 +320,7 @@ export class Runner {
           result.cursor === cursor ||
           cursors.has(result.cursor)
         )
-          throw new SpiderError(
+          throw new DatalomError(
             "SCHEMA_CHANGED",
             "分页游标未推进，已停止防止重复请求",
           );

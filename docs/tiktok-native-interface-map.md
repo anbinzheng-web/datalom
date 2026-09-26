@@ -57,17 +57,17 @@ Web 请求原点为 `https://www.tiktok.com`；`live.*` 原点为实际捕获的
 
 ## 内部复现入口
 
-`src/platforms/tiktok/native.ts` 定义允许的原站操作、参数和响应校验，原始响应保存在 `NativeResult.raw`。CLI 限定同一账号的已捕获 GET 成功证据，拒绝随意传 URL、Cookie、脚本或未经观察的路径。
+`packages/platform-tiktok/src/native.ts` 定义允许的原站操作、参数和响应校验，原始响应保存在 `NativeResult.raw`。CLI 限定同一账号的已捕获 GET 成功证据，拒绝随意传 URL、Cookie、脚本或未经观察的路径。
 
 ```sh
-pnpm exec tsx src/platforms/tiktok/tools/native-run.ts TikTok1 comment.replies \
+pnpm exec tsx --conditions=datalom-source research/tiktok/tools/native-run.ts TikTok1 comment.replies \
   e07b45de-f83f-4256-a43c-d921f2468a55 \
   '{"item_id":"7683824912389213470","comment_id":"7684401701051630358","cursor":"0","count":"3"}' 3
 
-pnpm exec tsx src/platforms/tiktok/tools/native-regression.ts artifacts/tiktok-native/validation-cases.json
-pnpm exec tsx src/platforms/tiktok/tools/native-regression.ts artifacts/tiktok-native/validation-additional.json
-pnpm exec tsx src/platforms/tiktok/tools/native-regression.ts artifacts/tiktok-native/validation-live.json
-pnpm exec tsx src/platforms/tiktok/tools/native-inventory.ts
+pnpm exec tsx --conditions=datalom-source research/tiktok/tools/native-regression.ts artifacts/tiktok-native/validation-cases.json
+pnpm exec tsx --conditions=datalom-source research/tiktok/tools/native-regression.ts artifacts/tiktok-native/validation-additional.json
+pnpm exec tsx --conditions=datalom-source research/tiktok/tools/native-regression.ts artifacts/tiktok-native/validation-live.json
+pnpm exec tsx --conditions=datalom-source research/tiktok/tools/native-inventory.ts
 ```
 
 证据库和 artifacts 是本机数据，不提交到 Git。其他环境需重新采集本机账号证据，不能复制上面 ID 就假定存在。回归文件只是顺序限速验证清单，不是对外批量服务。账号租约、版本校验、每次至少 3 秒间隔和代理链复用现有底层；失败不自动重试。

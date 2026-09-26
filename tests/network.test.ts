@@ -1,9 +1,10 @@
+import { dataDirectory } from "@datalom/runtime-node/paths";
 import { it, expect } from "vitest";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { CookieJar } from "tough-cookie";
-import { gostConfig, startRoute } from "../src/network/route.ts";
-import { HttpTransport } from "../src/network/transport.ts";
+import { gostConfig, startRoute } from "@datalom/network-node/route";
+import { HttpTransport } from "@datalom/network-node/transport";
 import { fixture, session } from "./helpers.ts";
 import { chainFixture, proxyGet } from "./proxy-fixture.ts";
 it("rejects direct clients, arbitrary targets and missing routes", async () => {
@@ -31,12 +32,12 @@ it("configures two ordered hops and authenticated downstream", () => {
     "fixture",
   );
 });
-const binary = resolve(".spider/bin/gost");
+const binary = process.env.DATALOM_GOST_BIN ?? process.env.SPIDER_GOST_BIN ?? resolve(dataDirectory(), "bin/gost");
 it.skipIf(!existsSync(binary))(
   "runs real GOST through two controlled proxies and fails closed when first hop goes down",
   async () => {
-    const old = process.env.SPIDER_GOST_BIN;
-    process.env.SPIDER_GOST_BIN = binary;
+    const old = process.env.DATALOM_GOST_BIN;
+    process.env.DATALOM_GOST_BIN = binary;
     const f = fixture(),
       chain = await chainFixture();
     let route;
@@ -84,8 +85,8 @@ it.skipIf(!existsSync(binary))(
       await route?.stop();
       await chain.close();
       f.cleanup();
-      if (old) process.env.SPIDER_GOST_BIN = old;
-      else delete process.env.SPIDER_GOST_BIN;
+      if (old) process.env.DATALOM_GOST_BIN = old;
+      else delete process.env.DATALOM_GOST_BIN;
     }
   },
   15000,

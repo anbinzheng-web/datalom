@@ -132,7 +132,7 @@ export function TaskDiagnostics({
                 );
                 const a = document.createElement("a");
                 a.href = url;
-                a.download = `spider-diagnostics-${taskId}.json`;
+                a.download = `datalom-diagnostics-${taskId}.json`;
                 a.click();
                 setTimeout(() => URL.revokeObjectURL(url), 1000);
               }}

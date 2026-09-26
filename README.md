@@ -1,4 +1,4 @@
-# Spider
+# Datalom
 
 本地优先的网页 API 逆向与执行平台。Node.js + TypeScript；RoxyBrowser 只用于登录、提取和研究，生产 Worker 使用独立 HTTP 与独立签名进程。
 
@@ -15,14 +15,14 @@ pnpm start
 
 打开 <http://127.0.0.1:4317>，在另一个终端运行 `pnpm auth` 获取本机访问令牌。令牌只需粘贴到登录页；网页不把密钥存入 localStorage。
 
-Node.js 要求 `>=24.11 <25`。GOST 安装器固定 `3.3.0`，校验发布包 SHA-256；可用 `SPIDER_GOST_BIN` 指定已有 GOST v3。下载需要代理时，可给**安装命令**设置 `NODE_USE_ENV_PROXY=1 HTTPS_PROXY=http://127.0.0.1:7897`。平台生产请求始终使用显式账号代理链。
+Node.js 要求 `>=24.11 <25`。GOST 安装器固定 `3.3.0`，校验发布包 SHA-256；可用 `DATALOM_GOST_BIN` 指定已有 GOST v3。下载需要代理时，可给**安装命令**设置 `NODE_USE_ENV_PROXY=1 HTTPS_PROXY=http://127.0.0.1:7897`。平台生产请求始终使用显式账号代理链。
 
-`pnpm start` 同时启动本地服务和独立 Worker。开发页面可另外运行 `pnpm web:dev`。数据目录默认 `.spider`，用 `SPIDER_DATA_DIR` 指定其他目录；每个目录对应独立的系统凭据库主密钥。
+`pnpm start` 同时启动本地服务和独立 Worker。开发页面可另外运行 `pnpm web:dev`。数据目录默认仓库根目录下的 `.datalom`，用 `DATALOM_DATA_DIR` 指定其他目录；每个目录对应独立的系统凭据库主密钥。
 
 ## 第一个账号
 
 1. 在 RoxyBrowser 中打开 Profile，登录 TikTok，并打开公开视频页面。
-2. Spider「连接设置」填写本机 OpenAPI 地址、工作区和 Clash 端口，必要时填写 API Key。
+2. Datalom「连接设置」填写本机 OpenAPI 地址、工作区和 Clash 端口，必要时填写 API Key。
 3. 「账号与会话」读取 Profiles，点击「提取会话」。已打开的 Profiles 排在前面。
 4. 打开账号详情，点击「验证代理线路」。账号代理来自 Profile；出口必须与 Profile 的记录一致。
 5. 「接口研究」选择账号和公开视频链接，点击「采集接口样本」。此操作使用浏览器，只在研究和重新采样时发生。
@@ -58,26 +58,24 @@ Authorization: Bearer <本机令牌>
 ## 工程结构
 
 ```text
-apps/server            本地鉴权、管理 API、静态页面、Worker 启动
-apps/web               React 管理页面
-apps/worker            队列、账号租约、HTTP 执行、分页与取消
-src/core               契约、加密、SQLite/Drizzle、任务和证据
-src/network            Cookie Jar、GOST 两跳线路、impit Transport
-src/platforms/tiktok/  TikTok 执行代码、签名、研究脚本和专属测试
-  research/           RoxyBrowser 会话提取、浏览器研究准备
-  tools/              TikTok 采集、分析、独立验证与回归入口
-  tests/              TikTok 协议与签名测试
-  vendor/             第三方参考实现及许可证
-src/platforms/doubao/  豆包 Node 签名/HTTP/会话、协议、HAR 解析与专属测试
-  tools/              豆包 Node CLI、采集、分析、探测与报告入口
-  tests/              豆包协议与采集测试
-tools                  通用鉴权、诊断、安装、界面验证和网络基准
-tests                  共用测试、受控双代理测试、架构边界测试
+apps/server                 Node 管理 API、静态页面、Worker 启动
+apps/web                    React 管理页面
+apps/worker                 队列、账号租约、HTTP 执行、分页与取消
+packages/contracts-ts       OpenAPI 生成类型、schema 与 HTTP 客户端
+packages/runtime-node       Node 执行接口、错误、纯诊断函数
+packages/storage-node       SQLite/Drizzle、加密、会话和持久化诊断
+packages/network-node       Cookie Jar、GOST 两跳线路、HTTP Transport
+packages/platform-*/src     各平台执行实现、专属测试与第三方参考
+research/*/src              平台浏览器连接与研究模块
+research/*/tools            采集、分析、独立验证和 CLI
+contracts/openapi           跨语言任务 API 契约
+tools                      通用鉴权、诊断、安装和验证
+tests                      跨包集成与架构边界测试
 ```
 
-`src/` 是应用源码，直接通过相对路径引用，不单独构建或发布包。`platforms/` 下只放平台目录；平台专属实现、研究工具和测试放在对应平台内。当前 Roxy 会话提取只处理 TikTok，位于 `src/platforms/tiktok/research/`。生产执行器不得依赖浏览器或平台研究模块，架构测试检查此边界。
+所有 TypeScript 应用、共享库和研究工具均为独立 pnpm workspace 包，跨包引用使用 `@datalom/...`。`pnpm build` 构建全部包，`pnpm start` 执行 JS 产物；开发使用 `pnpm dev`，无需预构建。生产 Worker 不依赖浏览器或研究包，架构测试检查源码图和包依赖图。
 
-完整边界与演进方向见 [架构说明](docs/architecture.md)，第三方来源见 [来源与许可证](docs/third-party.md)。
+完整开发、包边界、跨语言接入与路径兼容说明见 [monorepo 指南](docs/monorepo.md)。运行架构见 [架构说明](docs/architecture.md)，第三方来源见 [来源与许可证](docs/third-party.md)。
 
 问题排查入口：任务列表「结果与排查」，查看执行时间线、保存排查结论并导出报告。完整流程、原始证据读取和故障恢复见 [问题排查手册](docs/troubleshooting.md)。
 
@@ -94,13 +92,13 @@ pnpm benchmark
 pnpm research profiles
 pnpm research extract <profileId>
 pnpm research capture <profileId> <observedVideoUrl>
-pnpm exec tsx src/platforms/tiktok/tools/inspect-scripts.ts <profileId>
-pnpm exec tsx src/platforms/tiktok/tools/analyze-script.ts [evidenceId]
+pnpm exec tsx --conditions=datalom-source research/tiktok/tools/inspect-scripts.ts <profileId>
+pnpm exec tsx --conditions=datalom-source research/tiktok/tools/analyze-script.ts [evidenceId]
 ```
 
 `pnpm test:ui` 使用独立临时数据库和真实 Chromium，不调用 TikTok。`pnpm benchmark` 是本机双代理 HTTP/1.1 转发基准，不能当成 TikTok 吞吐。
 
-`src/platforms/tiktok/tools/live-regression.ts --close-profiles` 是开发验收工具：**会临时关闭已准备的两个测试 Profile，再恢复打开**；默认不自动运行。证据原文存入加密数据库，普通页面只返回摘要。
+`research/tiktok/tools/live-regression.ts --close-profiles` 是开发验收工具：**会临时关闭已准备的两个测试 Profile，再恢复打开**；默认不自动运行。证据原文存入加密数据库，普通页面只返回摘要。
 
 ## 当前限制
 

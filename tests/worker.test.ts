@@ -1,9 +1,9 @@
 import { it, expect } from "vitest";
-import { Runner } from "../apps/worker/src/runner.ts";
+import { Runner } from "@datalom/worker/runner";
 import {
-  SpiderError,
+  DatalomError,
   type PlatformAdapter,
-} from "../src/core/contracts.ts";
+} from "@datalom/runtime-node/contracts";
 import { fixture } from "./helpers.ts";
 const factory = async () => ({
   transport: {
@@ -39,7 +39,7 @@ it("accepts an empty terminal page and cancels a running task without losing its
       await new Promise((_, reject) => {
         context.signal.addEventListener(
           "abort",
-          () => reject(new SpiderError("CANCELLED", "cancelled")),
+          () => reject(new DatalomError("CANCELLED", "cancelled")),
           { once: true },
         );
       });
@@ -161,7 +161,7 @@ it("retries a transient network error once and never retries a challenge", async
       version: "fixture",
       async execute() {
         calls++;
-        throw new SpiderError(code, "fixture error");
+        throw new DatalomError(code, "fixture error");
       },
     };
     const runner = new Runner(f.store, adapter, factory, 1);

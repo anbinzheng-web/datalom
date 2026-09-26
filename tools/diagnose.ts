@@ -1,4 +1,4 @@
-import { openStore } from "../src/core/runtime.ts";
+import { openStore } from "@datalom/storage-node/runtime";
 import { mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { resolve, join } from "node:path";
 const store = openStore();
@@ -57,7 +57,7 @@ try {
     console.log(JSON.stringify(store.diagnostics.events(), null, 2));
   } else {
     console.log(
-      "Usage: pnpm diagnose inspect <taskId> | events | raw <eventId> | emergency | replay <taskId>\nraw/emergency 会将含敏感信息的证据解密到本机 .spider/diagnostics/exports，仅在本机排查，不要上传共享。",
+      "Usage: pnpm diagnose inspect <taskId> | events | raw <eventId> | emergency | replay <taskId>\nraw/emergency 会将含敏感信息的证据解密到本机 .datalom/diagnostics/exports，仅在本机排查，不要上传共享。",
     );
     process.exitCode = 1;
   }

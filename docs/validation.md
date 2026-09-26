@@ -2,7 +2,7 @@
 
 ## 真实 TikTok 独立请求
 
-已用两个已登录 RoxyBrowser Profile 提取真实会话（每个账号 32 条 TikTok Cookie）。完整原始证据加密保存在本机 `.spider/spider.sqlite`，普通文档不包含 Cookie、认证 Token 或代理密码。
+已用两个已登录 RoxyBrowser Profile 提取真实会话（每个账号 32 条 TikTok Cookie）。完整原始证据加密保存在本机 `.datalom/datalom.sqlite`，普通文档不包含 Cookie、认证 Token 或代理密码。
 
 测试视频：`7669255703952985375`，页面作者 `prettypickedd`；独立详情返回同一 ID、作者、描述以及评论计数 422，与页面取证一致。
 

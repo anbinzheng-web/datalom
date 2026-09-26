@@ -1,5 +1,5 @@
 import { it, expect } from "vitest";
-import { cookieJar } from "../src/network/cookies.ts";
+import { cookieJar } from "@datalom/network-node/cookies";
 import { session } from "./helpers.ts";
 it("preserves host-only, path, secure, expiry and same-name cookies", () => {
   const s = session();

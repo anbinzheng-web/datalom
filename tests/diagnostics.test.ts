@@ -2,11 +2,11 @@ import { it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fixture } from "./helpers.ts";
-import { Runner } from "../apps/worker/src/runner.ts";
-import { buildApp, authToken } from "../apps/server/src/app.ts";
-import { errorRecord } from "../src/core/diagnostics.ts";
-import { SpiderError } from "../src/core/contracts.ts";
-import { HttpTransport } from "../src/network/transport.ts";
+import { Runner } from "@datalom/worker/runner";
+import { buildApp, authToken } from "@datalom/server/app";
+import { errorRecord } from "@datalom/runtime-node/diagnostics";
+import { DatalomError } from "@datalom/runtime-node/contracts";
+import { HttpTransport } from "@datalom/network-node/transport";
 import { CookieJar } from "tough-cookie";
 const input = (id: string) => ({
   accountId: id,
@@ -50,7 +50,7 @@ it("preserves failed attempts, native causes and session snapshots without leaki
       version: "test-v2",
       async execute(_input, context) {
         context.trace?.("sign", "started", { token: "private-signature" });
-        throw new SpiderError("NETWORK", "代理连接失败", {
+        throw new DatalomError("NETWORK", "代理连接失败", {
           cause: Object.assign(
             new Error("secret-cookie-fixture upstream failed"),
             { code: "ECONNRESET" },
@@ -94,8 +94,8 @@ it("preserves failed attempts, native causes and session snapshots without leaki
       ),
     ).toBe(true);
     const bytes = Buffer.concat([
-      readFileSync(join(f.dir, "spider.sqlite")),
-      readFileSync(join(f.dir, "spider.sqlite-wal")),
+      readFileSync(join(f.dir, "datalom.sqlite")),
+      readFileSync(join(f.dir, "datalom.sqlite-wal")),
     ]).toString("utf8");
     expect(bytes).not.toMatch(
       /secret-cookie-fixture|private-signature|secret-proxy-fixture/,

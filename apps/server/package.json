@@ -1,0 +1,32 @@
+{
+  "name": "@datalom/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./src/*.ts",
+      "datalom-source": "./src/*.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "check": "tsc --noEmit -p tsconfig.json",
+    "build": "node ../../tools/build-package.mjs",
+    "dev": "tsx --conditions=datalom-source src/main.ts",
+    "start": "node dist/main.js"
+  },
+  "dependencies": {
+    "@fastify/static": "^8.2.0",
+    "@fastify/swagger": "^9.5.1",
+    "@datalom/network-node": "workspace:*",
+    "@datalom/platform-tiktok": "workspace:*",
+    "@datalom/research-tiktok": "workspace:*",
+    "@datalom/runtime-node": "workspace:*",
+    "@datalom/storage-node": "workspace:*",
+    "fastify": "^5.6.0",
+    "tough-cookie": "^6.0.0",
+    "@datalom/worker": "workspace:*",
+    "@datalom/contracts-ts": "workspace:*"
+  }
+}

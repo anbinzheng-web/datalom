@@ -1,17 +1,11 @@
 {
-  "compilerOptions": {
-    "target": "ES2023",
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "resolveJsonModule": true,
-    "jsx": "react-jsx",
-    "allowImportingTsExtensions": true,
-    "noEmit": true,
-    "lib": ["ES2023", "DOM", "DOM.Iterable"],
-    "types": ["node", "vite/client"]
-  },
-  "include": ["apps", "src", "tools", "tests", "vitest.config.ts"]
+  "extends": "./tsconfig.base.json",
+  "include": [
+    "apps",
+    "packages",
+    "research",
+    "tools",
+    "tests",
+    "vitest.config.ts"
+  ]
 }
