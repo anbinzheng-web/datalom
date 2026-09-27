@@ -186,12 +186,33 @@ export class Store {
       )
       .run(id, token);
   }
+  accountPolicy(id: string) {
+    this.getAccount(id);
+    return this.getSetting<{ minIntervalMs: number }>(`account-policy:${id}`) ?? { minIntervalMs: 3000 };
+  }
+  setAccountPolicy(id: string, minIntervalMs: number) {
+    this.getAccount(id);
+    if (!Number.isInteger(minIntervalMs) || minIntervalMs < 3000 || minIntervalMs > 3600000)
+      throw new DatalomError("INVALID_INPUT", "请求间隔应为 3000 至 3600000 毫秒");
+    this.setSetting(`account-policy:${id}`, { minIntervalMs });
+  }
+  coolDownAccount(id: string, reason: string) {
+    this.sql.transaction(() => {
+      const key = `account-rate-strikes:${id}`;
+      const strikes = Math.min((this.getSetting<number>(key) ?? 0) + 1, 7);
+      this.setSetting(key, strikes);
+      this.status(id, "cooldown", reason, Math.min(3600000, 60000 * 2 ** (strikes - 1)));
+    }).immediate();
+  }
+  resetRateStrikes(id: string) {
+    this.setSetting(`account-rate-strikes:${id}`, 0);
+  }
   scheduleNext(id: string, token: string, interval = 3000): void {
     this.sql
       .prepare(
         "UPDATE accounts SET nextAllowedAt=MAX(nextAllowedAt,?) WHERE id=? AND lease=?",
       )
-      .run(Date.now() + interval, id, token);
+      .run(Date.now() + Math.max(interval, this.getSetting<{ minIntervalMs: number }>(`account-policy:${id}`)?.minIntervalMs ?? interval), id, token);
   }
   reserveRate(
     id: string,
@@ -213,7 +234,7 @@ export class Store {
           .digest("hex");
         const scopes: [string, number][] = [
           [`proxy:${fingerprint}`, 100],
-          [`operation:tiktok:${operation}`, 50],
+          [`operation:${this.getAccount(id).platform}:${operation}`, 50],
         ];
         const now = Date.now();
         let at = Math.max(now, row.nextAllowedAt);
@@ -231,7 +252,7 @@ export class Store {
             .run(scope, at + spacing);
         this.sql
           .prepare("UPDATE accounts SET nextAllowedAt=? WHERE id=? AND lease=?")
-          .run(at + interval, id, lease);
+          .run(at + Math.max(interval, this.getSetting<{ minIntervalMs: number }>(`account-policy:${id}`)?.minIntervalMs ?? interval), id, lease);
         return Math.max(0, at - now);
       })
       .immediate();

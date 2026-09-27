@@ -1,6 +1,7 @@
 import { apiContract } from "@datalom/contracts-ts";
 import { repositoryRoot } from "@datalom/runtime-node/paths";
 import Fastify from "fastify";
+import type { FastifyInstance } from "fastify";
 import swagger from "@fastify/swagger";
 import staticFiles from "@fastify/static";
 import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
@@ -45,8 +46,9 @@ export function authToken(store: Store): string {
 export async function buildApp(
   store: Store,
   options: { logger?: boolean } = {},
+  existing?: FastifyInstance,
 ) {
-  const app = Fastify({
+  const app = existing ?? Fastify({
     genReqId: () => randomUUID(),
     logger: options.logger
       ? {
@@ -307,6 +309,18 @@ export async function buildApp(
     },
   );
   app.get("/api/accounts", async () => store.listAccounts());
+  app.get("/api/accounts/:id/scheduling", { schema: { params: idParams } }, async (req) =>
+    ({ ...store.accountPolicy((req.params as { id: string }).id), maxConcurrent: 1 }));
+  app.put("/api/accounts/:id/scheduling", {
+    schema: { params: idParams, body: {
+      type: "object", required: ["minIntervalMs"], additionalProperties: false,
+      properties: { minIntervalMs: { type: "integer", minimum: 3000, maximum: 3600000 } }
+    } }
+  }, async (req) => {
+    const id = (req.params as { id: string }).id;
+    store.setAccountPolicy(id, (req.body as { minIntervalMs: number }).minIntervalMs);
+    return { ...store.accountPolicy(id), maxConcurrent: 1 };
+  });
   app.post(
     "/api/accounts/:id/prepare",
     {

@@ -1,8 +1,6 @@
 node_modules
 dist
+.next
+.datalom
 .spider
-artifacts
 pnpm-lock.yaml
-packages/platform-tiktok/src/vendor
-
-.datalom/

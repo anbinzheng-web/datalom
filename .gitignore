@@ -5,5 +5,7 @@ dist/
 test-results/
 *.log
 artifacts/
+.next
 
 .datalom/
+config/roxy.json

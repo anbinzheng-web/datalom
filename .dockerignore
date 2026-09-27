@@ -1,0 +1,8 @@
+node_modules
+dist
+.datalom
+.spider
+.git
+.DS_Store
+research/**/evidence
+*.log

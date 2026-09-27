@@ -329,6 +329,7 @@ export class Runner {
       }
       this.store.sql
         .transaction(() => {
+          this.store.resetRateStrikes(accountId);
           this.store.status(accountId, "ready");
           this.store.finish(task.id, lease, "succeeded");
           trace("task", this.store.task(task.id).status, {
@@ -353,7 +354,7 @@ export class Runner {
         this.store.diagnostics.issue(task, error.code, { failedStage });
       code = error.code;
       if (code === "RATE_LIMIT")
-        this.store.status(accountId, "cooldown", error.message, 60000);
+        this.store.coolDownAccount(accountId, error.message);
       else if (code === "LOGIN_REQUIRED" || code === "CHALLENGE")
         this.store.status(accountId, "login_required", error.message);
       else if (code !== "CANCELLED")

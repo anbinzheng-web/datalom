@@ -19,6 +19,8 @@ Node.js 要求 `>=24.11 <25`。GOST 安装器固定 `3.3.0`，校验发布包 SH
 
 `pnpm start` 同时启动本地服务和独立 Worker。开发页面可另外运行 `pnpm web:dev`。数据目录默认仓库根目录下的 `.datalom`，用 `DATALOM_DATA_DIR` 指定其他目录；每个目录对应独立的系统凭据库主密钥。
 
+Docker 部署使用 `docker compose up --build`，服务监听 `127.0.0.1:4317`，在线 SQLite 和密钥保存在 `datalom-data` 卷。数据集不写入镜像；数据桶的 SQLite/分片交付和采集隔离见 [数据桶架构](docs/data-buckets.md)。
+
 ## 第一个账号
 
 1. 在 RoxyBrowser 中打开 Profile，登录 TikTok，并打开公开视频页面。
@@ -58,8 +60,8 @@ Authorization: Bearer <本机令牌>
 ## 工程结构
 
 ```text
-apps/server                 Node 管理 API、静态页面、Worker 启动
-apps/web                    React 管理页面
+apps/server                 管理 API（迁移目标为 NestJS）、鉴权、任务入队、Worker 启动
+apps/admin-web              我们的管理后台（React + Ant Design，包含研究与采集工具）
 apps/worker                 队列、账号租约、HTTP 执行、分页与取消
 packages/contracts-ts       OpenAPI 生成类型、schema 与 HTTP 客户端
 packages/runtime-node       Node 执行接口、错误、纯诊断函数
@@ -76,6 +78,8 @@ tests                      跨包集成与架构边界测试
 所有 TypeScript 应用、共享库和研究工具均为独立 pnpm workspace 包，跨包引用使用 `@datalom/...`。`pnpm build` 构建全部包，`pnpm start` 执行 JS 产物；开发使用 `pnpm dev`，无需预构建。生产 Worker 不依赖浏览器或研究包，架构测试检查源码图和包依赖图。
 
 完整开发、包边界、跨语言接入与路径兼容说明见 [monorepo 指南](docs/monorepo.md)。运行架构见 [架构说明](docs/architecture.md)，第三方来源见 [来源与许可证](docs/third-party.md)。
+
+NestJS/Next.js 的迁移决策与 Worker 职责见 [ADR 0001](docs/adr/0001-nest-next-and-worker-boundary.md)。前端应用边界见 [前端应用划分](docs/frontend-apps.md)。
 
 问题排查入口：任务列表「结果与排查」，查看执行时间线、保存排查结论并导出报告。完整流程、原始证据读取和故障恢复见 [问题排查手册](docs/troubleshooting.md)。
 

@@ -14,6 +14,8 @@ pnpm build                       # 所有模块及前端构建
 pnpm test:built                  # 构建产物、签名子进程、路径冒烟
 pnpm test:ui                     # 本机 Chrome UI 冒烟
 pnpm start                       # 使用 JS 构建产物启动
+
+docker compose up --build        # 使用 /data 持久化运行 API 与 Worker
 ```
 
 Node 24.11.0 与 pnpm 10.11.0 由 `.npmrc`、`mise.toml` 和 `packageManager` 固定。安装了 mise 时可使用 `mise run dev/check/test/build`。直接执行研究脚本需要 `pnpm exec tsx --conditions=datalom-source research/<platform>/tools/<entry>.ts`。
@@ -22,9 +24,10 @@ Node 24.11.0 与 pnpm 10.11.0 由 `.npmrc`、`mise.toml` 和 `packageManager` �
 
 ## 模块与依赖方向
 
-- `apps/web`：React/Vite，产物在根目录 `dist/web`。
-- `apps/server`：Fastify 管理服务，可依赖研究连接器，负责启动独立 Worker。
+- `apps/admin-web`：管理后台（包名 `@datalom/admin-web`），包含运营管理、RoxyBrowser 提取、接口研究和执行诊断；官网与客户用户后台使用 Next.js。
+- `apps/server`：NestJS 管理 API，可依赖研究连接器，负责鉴权、任务入队和启动独立 Worker。迁移期间保留 Fastify 实现作为兼容基线。
 - `apps/worker`：任务调度与执行；不依赖浏览器 SDK 或研究包。
+- `Dockerfile` / `compose.yaml`：生产镜像和持久化数据卷；容器内通过 `DATALOM_DATA_DIR=/data` 保存在线 SQLite。
 - `packages/contracts-ts`：由 OpenAPI 生成的类型与校验 schema，以及类型安全 HTTP 客户端。
 - `packages/runtime-node`：Node 内部执行接口、错误、纯诊断函数、固定路径。
 - `packages/storage-node`：SQLite、加密、持久化诊断和会话。
@@ -50,7 +53,7 @@ pnpm contracts:check
 
 生成文件提交到 Git。Fastify 任务输入校验和成功响应使用同一份生成 schema，测试使用生成客户端执行提交、幂等冲突、查询和取消，检查响应结构。ID 与游标是字符串；时间为 Unix 毫秒；result 为平台相关 JSON；取消保留部分结果。Cookie、密钥、Transport、AbortSignal 不属于公共契约。
 
-未来 Go 网关放在 `apps/gateway`，使用自己的 `go.mod`，通过该 OpenAPI 生成客户端并调用 Node 任务接口，不直接读写 SQLite。只有出现多个 Go 模块联合开发时才引入 `go.work`。Python 研究模块用 uv/pyproject.toml，Rust 模块用 Cargo；工具版本与检查命令加入 mise 和 CI。不要为未使用语言预先建空应用。
+后端不再规划 Go 网关：平台签名和逆向逻辑主要是 JavaScript，Node 可以直接复用，Go 改写会增加复杂度，而当前性能瓶颈在代理、限流和网络往返。若未来确实需要外部网关，应通过 OpenAPI 调用 Node 任务接口，不直接读写 SQLite。Python 研究模块用 uv/pyproject.toml，Rust 模块用 Cargo；工具版本与检查命令加入 mise 和 CI。不要为未使用语言预先建空应用。
 
 本次保持 TikTok 通用 Worker 与其他平台独立 CLI 的原有能力边界。多平台统一调度、PostgreSQL、集中队列及多节点部署应作为后续独立变更。
 

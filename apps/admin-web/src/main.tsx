@@ -215,7 +215,7 @@ function App() {
         <div className="wordmark">
           <div className="logo-symbol">D</div>datalom
         </div>
-        <div className="workspace">API RESEARCH WORKSPACE</div>
+        <div className="workspace">INTERNAL RESEARCH CONSOLE</div>
         <nav>
           {(
             [
@@ -261,7 +261,7 @@ function App() {
           </div>
           <div className="local-tag">
             <span className="dot" />
-            LOCAL ENVIRONMENT
+            INTERNAL ENVIRONMENT
           </div>
         </header>
         {error && !detail && !selectedTask && (
@@ -445,7 +445,7 @@ function App() {
             <section className="panel">
               <div className="section-heading">
                 <h2>
-                  会话池 <small>{data.accounts.length}</small>
+                  平台账号 <small>{data.accounts.length}</small>
                 </h2>
                 <input
                   className="search"
@@ -463,6 +463,7 @@ function App() {
                         <th>账号</th>
                         <th>平台</th>
                         <th>状态</th>
+                        <th>下次可调度</th>
                         <th>更新于</th>
                         <th>操作</th>
                       </tr>
@@ -483,10 +484,11 @@ function App() {
                                 会话 v{a.version} · {a.profileId.slice(0, 10)}
                               </small>
                             </td>
-                            <td>TikTok</td>
+                            <td>{a.platform}</td>
                             <td>
                               <Badge value={a.status} />
                             </td>
+                            <td>{a.nextAllowedAt > Date.now() ? time(a.nextAllowedAt) : "可调度（需状态可用）"}</td>
                             <td>{time(a.updatedAt)}</td>
                             <td>
                               <button
@@ -500,6 +502,13 @@ function App() {
                               >
                                 详情与线路
                               </button>
+                              <button className="text" onClick={() => act(a.id, async () => {
+                                const policy = await api(`/accounts/${a.id}/scheduling`);
+                                const value = window.prompt("单账号请求间隔（毫秒，至少 3000）；单账号并发固定为 1", String(policy.minIntervalMs));
+                                if (value === null) return;
+                                await api(`/accounts/${a.id}/scheduling`, "PUT", { minIntervalMs: Number(value) });
+                                setNotice("账号调度间隔已保存");
+                              })}>调度设置</button>
                             </td>
                           </tr>
                         ))}

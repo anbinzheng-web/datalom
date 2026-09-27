@@ -2,20 +2,21 @@
   "name": "@datalom/web",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
   "scripts": {
-    "check": "tsc --noEmit -p tsconfig.json",
-    "build": "vite build",
-    "dev": "vite"
+    "dev": "next dev -p 4320",
+    "build": "next build",
+    "start": "next start -p 4320",
+    "check": "tsc --noEmit"
   },
   "dependencies": {
+    "next": "^15.5.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },
   "devDependencies": {
-    "vite": "^7.1.0",
-    "@vitejs/plugin-react": "^5.0.0",
+    "@types/node": "^24.0.0",
     "@types/react": "^19.1.0",
-    "@types/react-dom": "^19.1.0"
+    "@types/react-dom": "^19.1.0",
+    "typescript": "^5.9.0"
   }
 }

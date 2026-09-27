@@ -1,15 +1,21 @@
 import { fileURLToPath } from "node:url";
+import { NestFactory } from "@nestjs/core";
+import { FastifyAdapter, NestFastifyApplication } from "@nestjs/platform-fastify";
 import { nodeLoaderArgs } from "@datalom/runtime-node/paths";
 import { spawn } from "node:child_process";
 import { openStore } from "@datalom/storage-node/runtime";
 import { buildApp } from "./app.ts";
 import { errorRecord } from "@datalom/runtime-node/diagnostics";
+import { DatalomModule } from "./nest.module.ts";
 const store = openStore();
-const app = await buildApp(store, { logger: true });
-await app.listen({ host: "127.0.0.1", port: 4317 });
+const adapter = new FastifyAdapter({ logger: true });
+const nest = await NestFactory.create<NestFastifyApplication>(DatalomModule, adapter);
+const app = await buildApp(store, { logger: false }, adapter.getInstance());
+await nest.listen(4317, "127.0.0.1");
 store.diagnostics.event({}, "server", "started", {
   pid: process.pid,
   node: process.version,
+  framework: "nestjs",
 });
 const worker = spawn(
   process.execPath,
@@ -19,7 +25,7 @@ const worker = spawn(
   ],
   { stdio: "inherit", env: process.env },
 );
-console.log("Datalom: http://127.0.0.1:4317 · 使用 pnpm auth 读取本机访问令牌");
+console.log("Datalom: http://127.0.0.1:4317 · NestJS API · 使用 pnpm auth 读取本机访问令牌");
 worker.on("exit", (code, signal) => {
   if (!closing)
     store.diagnostics.event({}, "worker-process", "exited", {
@@ -41,6 +47,6 @@ for (const signal of ["SIGINT", "SIGTERM"] as const)
     if (closing) return;
     closing = true;
     worker.kill("SIGTERM");
-    await app.close();
+    await nest.close();
     store.close();
   });
