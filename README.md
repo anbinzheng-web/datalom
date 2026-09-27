@@ -60,7 +60,7 @@ Authorization: Bearer <本机令牌>
 ## 工程结构
 
 ```text
-apps/server                 管理 API（迁移目标为 NestJS）、鉴权、任务入队、Worker 启动
+apps/server                 NestJS API、鉴权、任务入队（旧路由通过兼容模块接入）
 apps/admin-web              我们的管理后台（React + Ant Design，包含研究与采集工具）
 apps/worker                 队列、账号租约、HTTP 执行、分页与取消
 packages/contracts-ts       OpenAPI 生成类型、schema 与 HTTP 客户端

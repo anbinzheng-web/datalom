@@ -18,6 +18,7 @@ COPY --from=build --chown=datalom:datalom /app/package.json /app/pnpm-workspace.
 COPY --from=build --chown=datalom:datalom /app/node_modules ./node_modules
 COPY --from=build --chown=datalom:datalom /app/apps ./apps
 COPY --from=build --chown=datalom:datalom /app/packages ./packages
+COPY --from=build --chown=datalom:datalom /app/research ./research
 COPY --from=build --chown=datalom:datalom /app/dist ./dist
 RUN mkdir -p /data && chown datalom:datalom /data
 USER datalom

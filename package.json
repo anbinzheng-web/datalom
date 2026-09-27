@@ -8,7 +8,8 @@
     "node": ">=24.11 <25"
   },
   "scripts": {
-    "dev": "pnpm --parallel --filter @datalom/server --filter @datalom/admin-web --filter @datalom/web dev",
+    "predev": "pnpm --filter '@datalom/server^...' build",
+    "dev": "pnpm --parallel --filter @datalom/server --filter @datalom/worker --filter @datalom/admin-web --filter @datalom/web dev",
     "start": "node apps/server/dist/main.js",
     "worker": "node apps/worker/dist/main.js",
     "web:dev": "pnpm --filter @datalom/admin-web dev",
@@ -26,9 +27,9 @@
     "doubao:guest": "tsx --conditions=datalom-source research/doubao/tools/roxy-guest-chat.ts",
     "doubao:node": "tsx --conditions=datalom-source research/doubao/tools/native-run.ts",
     "gost:install": "tsx --conditions=datalom-source tools/install-gost.ts",
-    "dev:server": "pnpm --filter @datalom/server dev",
+    "dev:server": "pnpm --filter '@datalom/server^...' build && pnpm --filter @datalom/server dev",
     "dev:worker": "pnpm --filter @datalom/worker dev",
-    "dev:all": "pnpm --parallel --filter @datalom/server --filter @datalom/admin-web --filter @datalom/web dev",
+    "dev:all": "pnpm dev",
     "contracts:generate": "node tools/generate-contracts.mjs",
     "contracts:check": "node tools/generate-contracts.mjs --check",
     "test:built": "node tools/smoke-built.mjs"

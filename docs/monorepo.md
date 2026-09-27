@@ -25,7 +25,7 @@ Node 24.11.0 与 pnpm 10.11.0 由 `.npmrc`、`mise.toml` 和 `packageManager` �
 ## 模块与依赖方向
 
 - `apps/admin-web`：管理后台（包名 `@datalom/admin-web`），包含运营管理、RoxyBrowser 提取、接口研究和执行诊断；官网与客户用户后台使用 Next.js。
-- `apps/server`：NestJS 管理 API，可依赖研究连接器，负责鉴权、任务入队和启动独立 Worker。迁移期间保留 Fastify 实现作为兼容基线。
+- `apps/server`：使用官方 Nest CLI 的管理 API，负责鉴权和任务入队。旧 Fastify 路由通过兼容模块接入；Worker 由根目录开发命令或 Docker Compose 独立启动。
 - `apps/worker`：任务调度与执行；不依赖浏览器 SDK 或研究包。
 - `Dockerfile` / `compose.yaml`：生产镜像和持久化数据卷；容器内通过 `DATALOM_DATA_DIR=/data` 保存在线 SQLite。
 - `packages/contracts-ts`：由 OpenAPI 生成的类型与校验 schema，以及类型安全 HTTP 客户端。

@@ -1,11 +1,5 @@
 {
   "extends": "./tsconfig.base.json",
-  "include": [
-    "apps",
-    "packages",
-    "research",
-    "tools",
-    "tests",
-    "vitest.config.ts"
-  ]
+  "compilerOptions": { "experimentalDecorators": true, "emitDecoratorMetadata": true },
+  "include": ["apps", "packages", "research", "tools", "tests", "vitest.config.ts"]
 }
