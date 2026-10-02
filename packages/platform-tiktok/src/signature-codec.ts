@@ -1,4 +1,4 @@
-// Wire-format research references are recorded in docs/third-party.md.
+// Wire-format research references are recorded in packages/platform-tiktok/research/README.md.
 // This module has no browser, filesystem or network dependency.
 import { createHash, randomBytes } from "node:crypto";
 const alphabet =

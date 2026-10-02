@@ -8,17 +8,23 @@
       "types": "./src/*.ts",
       "datalom-source": "./src/*.ts",
       "default": "./dist/*.js"
+    },
+    "./api/*": {
+      "types": "./src/api/*.ts",
+      "datalom-source": "./src/api/*.ts",
+      "default": "./dist/api/*.js"
     }
   },
   "scripts": {
     "check": "tsc --noEmit -p tsconfig.json",
-    "build": "node ../../tools/build-package.mjs"
+    "build": "node ../../scripts/build-package.mjs"
   },
   "dependencies": {
     "@datalom/network-node": "workspace:*",
-    "@datalom/runtime-node": "workspace:*",
-    "@datalom/storage-node": "workspace:*",
-    "impit": "0.14.5"
+    "impit": "0.14.5",
+    "@datalom/platform-runtime": "workspace:*",
+    "@datalom/platform-instagram": "workspace:*",
+    "@datalom/shared": "workspace:*"
   },
   "devDependencies": {
     "vitest": "^3.2.0"

@@ -1,11 +1,11 @@
 import { Impit } from "impit";
 import { CookieJar } from "tough-cookie";
-import { errorRecord, type Trace } from "@datalom/runtime-node/diagnostics";
+import { errorRecord, type Trace } from "@datalom/shared/runtime/diagnostics";
 import {
   DatalomError,
   type Transport,
   type TransportResponse,
-} from "@datalom/runtime-node/contracts";
+} from "@datalom/shared/runtime/contracts";
 export class HttpTransport implements Transport {
   private client: Impit;
   constructor(

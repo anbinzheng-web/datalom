@@ -1,0 +1,56 @@
+{
+  "host": "http://127.0.0.1:50012",
+  "apikey": "525489f91ae1c2f5d1620cc189396d16",
+  "workspaceId": 5052,
+  "maxConcurrent": 5,
+  "profiles": [
+    {
+      "dirId": "70ee62c70fa482477599d40d12d1f139",
+      "platforms": ["tiktok"]
+    },
+    {
+      "dirId": "c993f5beb6f84c86e31c4476c25b17f1",
+      "platforms": ["tiktok"]
+    },
+    {
+      "dirId": "648717bd1429a77fc90d27cd1b31455f",
+      "platforms": ["facebook"]
+    },
+    {
+      "dirId": "ac35536f4f2793f2080021c23a5cd5c5",
+      "platforms": ["facebook"]
+    },
+    {
+      "dirId": "d6c8c3aabce26f4a2a8fb24d4b86a3d8",
+      "platforms": ["instagram"]
+    },
+    {
+      "dirId": "6d49cf234883ccec6d0fae1121b1ad8a",
+      "platforms": ["instagram"]
+    },
+    {
+      "dirId": "8ff849bf733d740610863349f8dec94b",
+      "platforms": ["x"]
+    },
+    {
+      "dirId": "e3c81bf58b265f8ed7981a0c75f2f9ff",
+      "platforms": ["x"]
+    },
+    {
+      "dirId": "c030c44824a9b38fb0486b6cc71356e2",
+      "platforms": ["youtube"]
+    },
+    {
+      "dirId": "a3ce7aa4b6128b5b9fdfa1b210179fe8",
+      "platforms": ["youtube"]
+    },
+    {
+      "dirId": "9a96fbb4d67bd688c353a81d0d5182af",
+      "platforms": ["reddit"]
+    },
+    {
+      "dirId": "1ea0415e29d253e2593ba338163f9088",
+      "platforms": ["reddit"]
+    }
+  ]
+}

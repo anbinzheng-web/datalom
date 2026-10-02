@@ -12,14 +12,11 @@
   },
   "scripts": {
     "check": "tsc --noEmit -p tsconfig.json",
-    "build": "node ../../tools/build-package.mjs",
+    "build": "node ../../scripts/build-package.mjs",
     "dev": "tsx --conditions=datalom-source src/main.ts",
     "start": "node dist/main.js"
   },
   "dependencies": {
-    "@datalom/network-node": "workspace:*",
-    "@datalom/platform-tiktok": "workspace:*",
-    "@datalom/runtime-node": "workspace:*",
-    "@datalom/storage-node": "workspace:*"
+    "@datalom/shared": "workspace:*"
   }
 }

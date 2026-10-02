@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" aria-labelledby="title">
+  <title id="title">California state flag</title>
+  <rect x="1" y="1" width="94" height="94" rx="2" fill="#fffdf5" stroke="#d2c6a8" stroke-width="2"/>
+  <path d="M1 78h94v17H1z" fill="#b71234"/>
+  <path d="M18 16l3.4 9.8H32l-8.6 6.1 3.3 9.9-8.7-6.1-8.5 6.1 3.2-9.9-8.5-6.1h10.6z" fill="#b71234"/>
+  <path d="M22 60c5-9 11-14 20-14 7 0 10 3 15 3 6 0 9-4 14-3l6 7-6 6-9 1-7 7H36l-6-5-10 1z" fill="#755330"/>
+  <path d="M46 43l4 5-6 2zM67 47l7-2-1 6z" fill="#755330"/>
+  <text x="48" y="75" fill="#755330" font-family="Arial, sans-serif" font-size="7" font-weight="700" text-anchor="middle">CALIFORNIA REPUBLIC</text>
+</svg>

@@ -1,0 +1,30 @@
+{
+  "name": "@datalom/platform-youtube",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./*": {
+      "types": "./src/*.ts",
+      "datalom-source": "./src/*.ts",
+      "default": "./dist/*.js"
+    },
+    "./api/*": {
+      "types": "./src/api/*.ts",
+      "datalom-source": "./src/api/*.ts",
+      "default": "./dist/api/*.js"
+    }
+  },
+  "scripts": {
+    "check": "tsc --noEmit -p tsconfig.json",
+    "build": "node ../../scripts/build-package.mjs"
+  },
+  "dependencies": {
+    "@datalom/platform-runtime": "workspace:*",
+    "undici": "^7.29.1"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.63.0",
+    "vitest": "^3.2.0"
+  }
+}

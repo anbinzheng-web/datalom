@@ -8,8 +8,8 @@ import {
 import type {
   RequestTemplate,
   ExecutionContext,
-} from "@datalom/runtime-node/contracts";
-import { session } from "../../../../tests/helpers.ts";
+} from "@datalom/shared/runtime/contracts";
+import { session } from "../../../../scripts/checks/helpers.ts";
 vi.mock("../signer-process.ts", () => ({
   signInProcess: vi.fn(
     async () =>
@@ -236,4 +236,19 @@ it("preserves unknown pagination for the observed suggested-host live feed varia
   expect(r.count).toBe(1);
   expect(r.hasMore).toBeUndefined();
   expect(r.raw.extra.max_time).toBe(123);
+});
+
+describe('public video operations using native responses', () => {
+  it('retains the full detail response and rejects mismatched video IDs', () => {
+    const input: NativeInput = { operation: 'video.detail', parameters: { itemId: '123' } };
+    const raw = { status_code: 0, itemInfo: { itemStruct: { id: '123' } }, extra: { logid: 'fixture' } };
+    expect(parseNative(input, 200, JSON.stringify(raw)).raw).toEqual(raw);
+    expect(() => parseNative({ ...input, parameters: { itemId: '456' } }, 200, JSON.stringify(raw))).toThrow('ID');
+  });
+  it('validates comment identities and preserves pagination metadata', () => {
+    const input: NativeInput = { operation: 'video.comments', parameters: { aweme_id: '123', cursor: '0' } };
+    const raw = { status_code: 0, comments: [{ cid: '1', text: 'hello' }], cursor: 20, has_more: 1, total: 40 };
+    expect(parseNative(input, 200, JSON.stringify(raw))).toMatchObject({ raw, cursor: '20', hasMore: true });
+    expect(() => parseNative(input, 200, JSON.stringify({ ...raw, comments: [{}] }))).toThrow('ID');
+  });
 });

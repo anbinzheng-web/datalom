@@ -1,6 +1,6 @@
 import { Inject, Injectable, type OnModuleInit, type OnApplicationShutdown } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
-import { Store } from '@datalom/storage-node/store';
+import { Store } from '@datalom/shared/storage/store';
 import type { FastifyInstance } from 'fastify';
 import { buildApp } from '../app.js';
 

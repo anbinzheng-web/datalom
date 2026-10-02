@@ -4,9 +4,9 @@ import { createHash } from "node:crypto";
 import { operationUrl } from "./native.ts";
 import { Impit } from "impit";
 import { XCookies } from "./cookies.ts";
-import { DatalomError } from "@datalom/runtime-node/contracts";
-import type { Trace } from "@datalom/runtime-node/diagnostics";
-import { errorRecord } from "@datalom/runtime-node/diagnostics";
+import { DatalomError } from "@datalom/shared/runtime/contracts";
+import type { Trace } from "@datalom/shared/runtime/diagnostics";
+import { errorRecord } from "@datalom/shared/runtime/diagnostics";
 import type { XSession } from "./session.ts";
 
 export class XTransport {

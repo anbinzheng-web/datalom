@@ -1,0 +1,12 @@
+{
+  "host": "http://127.0.0.1:50000",
+  "apikey": "xxxx",
+  "workspaceId": "replace-with-roxy-workspace-id",
+  "maxConcurrent": 5,
+  "profiles": [
+    {
+      "dirId": "replace-with-profile-id",
+      "platforms": ["tiktok", "youtube", "facebook", "x", "instagram"]
+    }
+  ]
+}

@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { createContext, runInContext, type Context } from "node:vm";
 import { parseHTML } from "linkedom";
 import { CookieJar } from "tough-cookie";
-import { DatalomError } from "@datalom/runtime-node/contracts";
+import { DatalomError } from "@datalom/shared/runtime/contracts";
 
 // Official JavaScript, pinned to the version observed in both the archived page
 // and the 2026-09-17 HTTP page. Download/cache it locally, never execute new code

@@ -3,20 +3,24 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 4320",
-    "build": "next build",
+    "dev": "node ../../scripts/sync-brand.mjs && next dev -p 4320",
+    "build": "node ../../scripts/sync-brand.mjs && next build",
     "start": "next start -p 4320",
-    "check": "tsc --noEmit"
+    "check": "node scripts/check-styles.mjs && tsc --noEmit"
   },
   "dependencies": {
+    "@datalom/shared": "workspace:*",
+    "@radix-ui/react-select": "^2.3.7",
     "next": "^15.5.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^24.0.0",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
+    "tailwindcss": "^4.3.3",
     "typescript": "^5.9.0"
   }
 }

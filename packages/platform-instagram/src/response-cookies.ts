@@ -1,6 +1,6 @@
 import { Cookie, domainMatch, type CookieJar } from "tough-cookie";
-import { DatalomError } from "@datalom/runtime-node/contracts";
-import type { Trace } from "@datalom/runtime-node/diagnostics";
+import { DatalomError } from "@datalom/shared/runtime/contracts";
+import type { Trace } from "@datalom/shared/runtime/diagnostics";
 export async function applyResponseCookies(
   jar: CookieJar,
   values: string[],

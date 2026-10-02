@@ -18,3 +18,5 @@ the API and `pnpm worker` for the Worker; Docker Compose starts both services.
 
 `pnpm --filter @datalom/server exec nest generate module <name>` generates new
 feature modules. `pnpm --filter @datalom/server build` uses `nest build`.
+
+API boundaries: see [architecture](../../AGENTS.md). Each platform has its own Nest module in `src/platforms/`; shared execution lives in `src/public-api/`.

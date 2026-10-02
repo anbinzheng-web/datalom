@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { DatalomError } from "@datalom/runtime-node/contracts";
+import { DatalomError } from "@datalom/shared/runtime/contracts";
 import { inspectDoubaoStream, parseDoubaoSSE } from "./protocol.ts";
 
 export interface Capture {

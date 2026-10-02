@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 490 128" fill="none" role="img" aria-label="DATALOM">
+  <title>DATALOM</title>
+  <g fill="#A5AEFF" transform="translate(0 7) scale(.89)">
+    <path fill-rule="evenodd" d="M24 18H62C89.614 18 112 38.595 112 64S89.614 110 62 110H24V77L43 66V92H61C79.225 92 94 79.464 94 64S79.225 36 61 36H24V18Z"/>
+    <path d="M24 45H66L24 69V45Z"/>
+  </g>
+  <!-- Custom monospaced lettering: 46-unit advance, geometric terminals. -->
+  <g stroke="#FFFFFF" stroke-width="8" stroke-linejoin="round" stroke-linecap="square" transform="translate(138 39)">
+    <path d="M0 0H13C27 0 32 9 32 24S27 48 13 48H0Z"/>
+    <path d="M46 48 59 0H65L78 48M51 32H73"/>
+    <path d="M92 0H124M108 0V48M98 48H118"/>
+    <path d="M138 48 151 0H157L170 48M143 32H165"/>
+    <path d="M184 0V48H216"/>
+    <path d="M246 0C234 0 230 8 230 24S234 48 246 48 262 40 262 24 258 0 246 0Z"/>
+    <path d="M276 48V0L292 24 308 0V48"/>
+  </g>
+</svg>

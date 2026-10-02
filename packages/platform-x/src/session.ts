@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { DatalomError, type SessionSecret } from "@datalom/runtime-node/contracts";
-import type { Store } from "@datalom/storage-node/store";
+import { DatalomError, type SessionSecret } from "@datalom/shared/runtime/contracts";
+import type { Store } from "@datalom/shared/storage/store";
 export interface XSession extends SessionSecret {
   profileId: string;
   partitionCookieJar?: string;

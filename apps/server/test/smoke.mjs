@@ -6,8 +6,8 @@ import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { Test } from '@nestjs/testing';
 import { FastifyAdapter } from '@nestjs/platform-fastify';
-import { Store } from '@datalom/storage-node/store';
-import { Vault } from '@datalom/storage-node/crypto';
+import { Store } from '@datalom/shared/storage/store';
+import { Vault } from '@datalom/shared/storage/crypto';
 import { AppModule } from '../dist/app.module.js';
 import { authToken } from '../dist/app.js';
 

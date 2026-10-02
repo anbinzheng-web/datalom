@@ -1,4 +1,4 @@
-import { DatalomError } from "@datalom/runtime-node/contracts";
+import { DatalomError } from "@datalom/shared/runtime/contracts";
 import { parseGraphQL, parseConnection } from "./protocol.ts";
 import { marketplaceOperations, validateMarketplace } from "./marketplace.ts";
 export const operations = {

@@ -1,6 +1,6 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { CookieJar } from "tough-cookie";
-import { fixture } from "../../../../tests/helpers.ts";
+import { fixture } from "../../../../scripts/checks/helpers.ts";
 import { DoubaoNative, createNodeGuest } from "../native.ts";
 import type { DoubaoSession } from "../session.ts";
 

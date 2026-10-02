@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { DatalomError, type SessionSecret } from "@datalom/runtime-node/contracts";
-import type { Store } from "@datalom/storage-node/store";
+import { DatalomError, type SessionSecret } from "@datalom/shared/runtime/contracts";
+import type { Store } from "@datalom/shared/storage/store";
 export interface FacebookSession extends SessionSecret { profileId: string; capturedAt: number; requestCounter: number }
 export class FacebookSessions {
   constructor(private store: Store) { store.sql.exec(`CREATE TABLE IF NOT EXISTS facebook_sessions(profileId TEXT PRIMARY KEY, version INTEGER NOT NULL, payload TEXT NOT NULL, lease TEXT, leaseUntil INTEGER NOT NULL DEFAULT 0, nextAt INTEGER NOT NULL DEFAULT 0)`); }

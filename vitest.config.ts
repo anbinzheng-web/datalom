@@ -4,7 +4,7 @@ export default defineConfig({
   ssr: { resolve: { conditions: ["datalom-source"] } },
   test: {
     server: { deps: { inline: [/^@datalom\//] } },
-    include: ["tests/**/*.test.ts", "packages/*/src/tests/**/*.test.ts"],
+    include: ["scripts/checks/**/*.test.ts", "packages/*/src/tests/**/*.test.ts"],
     testTimeout: 15000,
   },
 });

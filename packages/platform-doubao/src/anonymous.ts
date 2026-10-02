@@ -1,4 +1,4 @@
-import { DatalomError } from "@datalom/runtime-node/contracts";
+import { DatalomError } from "@datalom/shared/runtime/contracts";
 
 export interface DoubaoCookieIdentity {
   name: string;

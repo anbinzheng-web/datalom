@@ -1,0 +1,39 @@
+{
+  "name": "@datalom/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./api/*": {
+      "types": "./src/api/*.ts",
+      "datalom-source": "./src/api/*.ts",
+      "default": "./dist/api/*.js"
+    },
+    "./runtime/*": {
+      "types": "./src/runtime/*.ts",
+      "datalom-source": "./src/runtime/*.ts",
+      "default": "./dist/runtime/*.js"
+    },
+    "./storage/*": {
+      "types": "./src/storage/*.ts",
+      "datalom-source": "./src/storage/*.ts",
+      "default": "./dist/storage/*.js"
+    },
+    "./api": {
+      "types": "./src/api/index.ts",
+      "datalom-source": "./src/api/index.ts",
+      "default": "./dist/api/index.js"
+    },
+    "./brand/*": "./brand/*"
+  },
+  "scripts": {
+    "check": "tsc --noEmit -p tsconfig.json",
+    "build": "node ../../scripts/build-package.mjs"
+  },
+  "dependencies": {
+    "openapi-fetch": "^0.17.0",
+    "@napi-rs/keyring": "^2.1.0",
+    "better-sqlite3": "^12.0.0",
+    "drizzle-orm": "^0.44.0"
+  }
+}

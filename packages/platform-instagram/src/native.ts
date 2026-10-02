@@ -1,4 +1,4 @@
-import { DatalomError } from "@datalom/runtime-node/contracts";
+import { DatalomError } from "@datalom/shared/runtime/contracts";
 import { randomUUID } from "node:crypto";
 import { parseGraphQL } from "./protocol.ts";
 export const operations = {

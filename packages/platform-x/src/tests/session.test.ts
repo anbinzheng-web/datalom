@@ -1,7 +1,7 @@
 import { it, expect } from "vitest";
-import { fixture, session } from "../../../../tests/helpers.ts";
-import { Store } from "@datalom/storage-node/store";
-import { Vault } from "@datalom/storage-node/crypto";
+import { fixture, session } from "../../../../scripts/checks/helpers.ts";
+import { Store } from "@datalom/shared/storage/store";
+import { Vault } from "@datalom/shared/storage/crypto";
 import { XSessions } from "../session.ts";
 it("restores encrypted X sessions and rejects concurrent extraction, stale versions and expired leases", () => {
   const f = fixture();

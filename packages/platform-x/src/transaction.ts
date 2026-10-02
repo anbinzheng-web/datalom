@@ -2,7 +2,7 @@
 // See vendor/LICENSE-x-client-transaction-id. No remote code is executed.
 import { createHash, randomBytes } from "node:crypto";
 import { parseHTML } from "linkedom";
-import { DatalomError } from "@datalom/runtime-node/contracts";
+import { DatalomError } from "@datalom/shared/runtime/contracts";
 const fail = (m: string): never => {
   throw new DatalomError("RESEARCH_REQUIRED", m);
 };

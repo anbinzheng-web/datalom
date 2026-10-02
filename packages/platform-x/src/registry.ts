@@ -1,5 +1,5 @@
 import { parseHTML } from "linkedom";
-import { DatalomError } from "@datalom/runtime-node/contracts";
+import { DatalomError } from "@datalom/shared/runtime/contracts";
 import { operations } from "./native.ts";
 export function resolveMainScript(html: string) {
   const urls = [...parseHTML(html).document.querySelectorAll("script[src]")]

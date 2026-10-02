@@ -1,4 +1,4 @@
-import { DatalomError } from "@datalom/runtime-node/contracts";
+import { DatalomError } from "@datalom/shared/runtime/contracts";
 export interface GraphQLDocument {
   data: Record<string, any>;
   chunks: Record<string, any>[];

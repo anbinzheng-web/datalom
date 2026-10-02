@@ -1,5 +1,5 @@
 import { Cookie, CookieJar } from "tough-cookie";
-import { DatalomError, type SessionSecret } from "@datalom/runtime-node/contracts";
+import { DatalomError, type SessionSecret } from "@datalom/shared/runtime/contracts";
 export function cookieJar(session: SessionSecret): CookieJar {
   if (session.cookies.some((c) => c.partitionKey))
     throw new DatalomError(

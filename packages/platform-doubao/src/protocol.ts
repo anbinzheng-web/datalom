@@ -1,4 +1,4 @@
-import { DatalomError } from "@datalom/runtime-node/contracts";
+import { DatalomError } from "@datalom/shared/runtime/contracts";
 
 // Observed in Doubao's chat.42382d60.js on 2026-09-16. These are client
 // classifications, not evidence of which server-side risk feature triggered.

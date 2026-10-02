@@ -1,0 +1,109 @@
+{
+  "provenance": "Minimal fields from Studio content and analytics responses observed 2026-09-14 in authorized profile 9353eff441c7d25a91cb567498091475; description omitted, no media URLs or session data. Retention list uses the shape stored on later Studio runs: timestamp and peak_value are milliseconds, one point per second, value is the share still watching.",
+  "list": {
+    "status_code": 0,
+    "has_more": false,
+    "cursor": 1,
+    "is_limited": false,
+    "item_list": [
+      {
+        "item_id": "7673802989517229326",
+        "create_time": "1786696569",
+        "post_time": "1786696569",
+        "duration": 10055,
+        "play_count": "128",
+        "like_count": "0",
+        "comment_count": "0",
+        "favorite_count": "0",
+        "share_count": "0",
+        "visibility": 1,
+        "is_pinned": false,
+        "in_review": false
+      }
+    ]
+  },
+  "analytics": {
+    "status_code": 0,
+    "video_info": { "aweme_id": "7673802989517229326", "author": { "uid": "7629981813087175694" } },
+    "video_finish_rate_realtime": {
+      "is_after_7d": false,
+      "is_data_delay": false,
+      "value": { "status": 0, "value": 0.0909 },
+      "value_compare_previous_day": { "status": 0, "value": 0 }
+    },
+    "video_per_duration_realtime": {
+      "is_after_7d": false,
+      "is_data_delay": false,
+      "value": { "status": 0, "value": 2.65 },
+      "value_compare_previous_day": { "status": 0, "value": 0 }
+    },
+    "video_total_duration_realtime": {
+      "is_after_7d": false,
+      "is_data_delay": false,
+      "value": { "status": 0, "value": 350 },
+      "value_compare_previous_day": { "status": 0, "value": 0 }
+    },
+    "video_new_followers": { "status": 0, "value": 0 },
+    "total_video_uv": { "status": 0, "value": 96 },
+    "video_uv": { "status": 0, "value": 101 },
+    "video_viewer_new_viewer_percent": { "status": 0, "value": 0.98 },
+    "video_viewer_return_viewer_percent": { "status": 0, "value": 0.02 },
+    "video_viewer_follower_percent": { "status": 0, "value": 0 },
+    "video_viewer_non_follower_percent": { "status": 0, "value": 1 },
+    "video_viewer_gender_percent_realtime": {
+      "is_after_7d": false,
+      "is_data_delay": false,
+      "value": {
+        "status": 0,
+        "value": [
+          { "key": "male_vv", "str_value": "0.87", "value": 0.87 },
+          { "key": "female_vv", "str_value": "0.09", "value": 0.09 },
+          { "is_other": true, "key": "other_vv", "str_value": "0.04", "value": 0.04 }
+        ]
+      }
+    },
+    "video_age_distribution": {
+      "status": 0,
+      "value": [
+        { "key": "18-24", "str_value": "0.41", "value": 0.41 },
+        { "key": "25-34", "str_value": "0.22", "value": 0.22 }
+      ]
+    },
+    "video_region_percent": {
+      "status": 0,
+      "value": [{ "key": "US", "str_value": "0.95", "value": 0.95 }]
+    },
+    "video_city_percent": {
+      "status": 0,
+      "value": [{ "key": "Houston,US", "str_value": "0.19", "value": 0.19 }]
+    },
+    "video_retention_rate_realtime": {
+      "is_after_7d": false,
+      "is_data_delay": false,
+      "value": {
+        "status": 0,
+        "peak_value": 2000,
+        "list": [
+          { "timestamp": "0", "value": 1 },
+          { "timestamp": "1000", "value": 0.76 },
+          { "timestamp": "2000", "value": 0.45 },
+          { "timestamp": "3000", "value": 0.33 }
+        ]
+      }
+    },
+    "item_search_terms": {
+      "status": 0,
+      "value": [{ "key": "wake outfit", "str_value": "1.00", "value": 1 }]
+    },
+    "video_vv_history_7d": [
+      { "status": 0, "value": 120 },
+      { "status": 0, "value": 7 },
+      { "status": 0, "value": 0 },
+      { "status": 0, "value": 0 },
+      { "status": 0, "value": 0 },
+      { "status": 0, "value": 0 },
+      { "status": 0, "value": 0 }
+    ],
+    "video_vv_history_48_hours": null
+  }
+}

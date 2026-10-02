@@ -4,5 +4,5 @@ dist
 .spider
 .git
 .DS_Store
-research/**/evidence
+packages/platform-*/research/**/evidence
 *.log

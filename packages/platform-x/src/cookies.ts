@@ -1,7 +1,7 @@
 import { CookieJar, Cookie, domainMatch } from "tough-cookie";
 import { cookieJar } from "@datalom/network-node/cookies";
-import { DatalomError, type BrowserCookie } from "@datalom/runtime-node/contracts";
-import type { Trace } from "@datalom/runtime-node/diagnostics";
+import { DatalomError, type BrowserCookie } from "@datalom/shared/runtime/contracts";
+import type { Trace } from "@datalom/shared/runtime/diagnostics";
 import type { XSession } from "./session.ts";
 // This executor supports exactly one top-level context. Partitioned cookies
 // never enter the ordinary jar, and both stores survive response updates.

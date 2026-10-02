@@ -1,0 +1,55 @@
+{
+  "contents": {
+    "twoColumnSearchResultsRenderer": {
+      "primaryContents": {
+        "sectionListRenderer": {
+          "contents": [
+            {
+              "itemSectionRenderer": {
+                "contents": [
+                  {
+                    "videoRenderer": {
+                      "videoId": "dQw4w9WgXcQ",
+                      "title": { "runs": [{ "text": "Never gonna give you up #music" }] },
+                      "viewCountText": { "simpleText": "1.2K views" },
+                      "ownerText": {
+                        "runs": [
+                          {
+                            "text": "Official Channel",
+                            "navigationEndpoint": {
+                              "browseEndpoint": {
+                                "browseId": "UCtest",
+                                "canonicalBaseUrl": "@official"
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "publishedTimeText": { "simpleText": "2 days ago" },
+                      "thumbnail": {
+                        "thumbnails": [
+                          { "url": "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg" }
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "videoRenderer": {
+                      "videoId": "abcdefghijk",
+                      "title": { "simpleText": "No stats video" }
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "continuationItemRenderer": {
+                "continuationEndpoint": { "continuationCommand": { "token": "NEXT" } }
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}

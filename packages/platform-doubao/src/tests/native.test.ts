@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CookieJar } from "tough-cookie";
-import { fixture } from "../../../../tests/helpers.ts";
+import { fixture } from "../../../../scripts/checks/helpers.ts";
 import {
   buildDoubaoMessage,
   conversationFromStream,

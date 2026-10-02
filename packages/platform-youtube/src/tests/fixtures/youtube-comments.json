@@ -1,0 +1,33 @@
+{
+  "onResponseReceivedEndpoints": [
+    {
+      "reloadContinuationItemsCommand": {
+        "continuationItems": [
+          {
+            "commentThreadRenderer": {
+              "comment": {
+                "commentRenderer": {
+                  "commentId": "Ugxd123",
+                  "contentText": { "runs": [{ "text": "great video" }] },
+                  "authorText": { "simpleText": "@alice" },
+                  "voteCount": { "simpleText": "12" },
+                  "publishedTimeText": { "simpleText": "1 day ago" }
+                }
+              }
+            }
+          },
+          {
+            "commentThreadRenderer": {
+              "comment": {
+                "commentRenderer": {
+                  "commentId": "Ugxd456",
+                  "contentText": { "simpleText": "no likes on this one" }
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

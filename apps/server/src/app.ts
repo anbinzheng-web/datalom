@@ -1,5 +1,5 @@
-import { apiContract } from '@datalom/contracts-ts';
-import { repositoryRoot } from '@datalom/runtime-node/paths';
+import { schemas } from './openapi/schemas.js';
+import { repositoryRoot } from '@datalom/shared/runtime/paths';
 import Fastify from 'fastify';
 import type { FastifyInstance } from 'fastify';
 import swagger from '@fastify/swagger';
@@ -8,19 +8,15 @@ import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { CookieJar } from 'tough-cookie';
-import { Store } from '@datalom/storage-node/store';
-import {
-  DatalomError,
-  safeError,
-  type RouteConfig,
-  type TaskInput,
-} from '@datalom/runtime-node/contracts';
-import { RoxyConnector, type RoxyConfig } from '@datalom/research-tiktok/roxy';
-import { startRoute, validateProxy } from '@datalom/network-node/route';
+import { Store } from '@datalom/shared/storage/store';
+import { DatalomError, safeError } from '@datalom/shared/runtime/contracts';
+
 import { HttpTransport } from '@datalom/network-node/transport';
+import { accountProxy, checkProxy, openAccountRoute } from '@datalom/network-node/proxy-check';
+import { checkStoredSession } from '@datalom/network-node/session-check';
 import { normalizeVideo } from '@datalom/platform-tiktok/adapter';
-import { prepareAccount } from '@datalom/research-tiktok/prepare';
-import { errorRecord, type Trace } from '@datalom/runtime-node/diagnostics';
+
+import { errorRecord, type Trace } from '@datalom/shared/runtime/diagnostics';
 
 const string = { type: 'string' };
 const idParams = {
@@ -28,12 +24,6 @@ const idParams = {
   required: ['id'],
   properties: { id: string },
   additionalProperties: false,
-};
-const taskBody = apiContract.components.schemas.TaskSubmission;
-const defaultConfig: RoxyConfig = {
-  host: 'http://127.0.0.1:50000',
-  workspaceId: '',
-  upstream: { protocol: 'http', host: '127.0.0.1', port: 7897 },
 };
 export function authToken(store: Store): string {
   let token = store.getSetting<string>('auth');
@@ -104,9 +94,10 @@ export async function buildApp(
       .header('X-Content-Type-Options', 'nosniff')
       .header('Referrer-Policy', 'no-referrer')
       .header('Cache-Control', 'no-store');
+    const path = req.url.split('?')[0];
     if (
       req.url.startsWith('/api/') &&
-      !['/api/auth', '/api/health'].includes(req.url.split('?')[0])
+      !['/api/auth', '/api/auth/complete', '/api/auth/session', '/api/health'].includes(path)
     ) {
       const cookie =
         req.headers.cookie
@@ -117,11 +108,13 @@ export async function buildApp(
       const bearer = req.headers.authorization?.startsWith('Bearer ')
         ? req.headers.authorization.slice(7)
         : '';
-      if (!matches(bearer || cookie))
+      const candidate = bearer || decodeURIComponent(cookie);
+      const admin = store.userForSession(candidate);
+      if (!matches(candidate) && admin?.role !== 'admin')
         return reply.code(401).send({
           error: {
             code: 'AUTH_REQUIRED',
-            message: '请先使用本机访问令牌登录',
+            message: '请先登录',
           },
         });
     }
@@ -172,7 +165,7 @@ export async function buildApp(
   if (!existing)
     app.get(
       '/api/health',
-      { schema: { response: { 200: apiContract.components.schemas.Health } } },
+      { schema: { response: { 200: schemas.Health } } },
       async () => ({ ok: true, version: '0.1.0' }),
     );
   app.post(
@@ -181,111 +174,130 @@ export async function buildApp(
       schema: {
         body: {
           type: 'object',
-          required: ['token'],
+          required: ['email', 'password'],
           additionalProperties: false,
-          properties: { token: string },
+          properties: { email: string, password: string },
         },
       },
     },
     async (req, reply) => {
-      if (!matches((req.body as any).token))
-        return reply.code(401).send({ error: { message: '访问令牌不正确' } });
-      reply.header(
-        'Set-Cookie',
-        `datalom_session=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=86400`,
-      );
-      return { ok: true };
+      try {
+        const session = store.signInWithPassword(
+          String((req.body as { email: string }).email),
+          String((req.body as { password: string }).password),
+        );
+        reply.header(
+          'Set-Cookie',
+          `datalom_session=${session.sessionId}; HttpOnly; SameSite=Strict; Path=/; Max-Age=1209600`,
+        );
+        return { ok: true, user: session.user };
+      } catch {
+        return reply.code(401).send({ error: { message: '邮箱或密码不正确' } });
+      }
     },
   );
+  app.post('/api/auth/complete', async (req, reply) => {
+    const body = req.body as {
+      provider?: string;
+      subject?: string;
+      email?: string;
+      name?: string;
+      avatarUrl?: string;
+    };
+    if (!body || (body.provider !== 'google' && body.provider !== 'github'))
+      return reply.code(400).send({ error: { message: '不支持的登录方式' } });
+    try {
+      return store.signInWithProvider({
+        provider: body.provider,
+        subject: String(body.subject ?? ''),
+        email: String(body.email ?? ''),
+        name: body.name,
+        avatarUrl: body.avatarUrl,
+      });
+    } catch (error) {
+      const safe = safeError(error);
+      return reply.code(safe.code === 'CONFLICT' ? 403 : 400).send({ error: { message: safe.message } });
+    }
+  });
+  app.get('/api/auth/session', async (req) => {
+    const id = String((req.query as { id?: string }).id ?? '');
+    return { user: store.userForSession(id) };
+  });
+  app.delete('/api/auth/session', async (req) => {
+    store.endSession(String((req.query as { id?: string }).id ?? ''));
+    return { ok: true };
+  });
+  app.get('/api/users', async () => ({ users: store.listUsers() }));
+  app.get('/api/whitelist', async () => ({ emails: store.listAllowedEmails() }));
+  app.post('/api/whitelist', async (req, reply) => {
+    const body = req.body as { email?: string; note?: string };
+    try {
+      store.allowEmail(String(body?.email ?? ''), body?.note ?? '');
+      return { emails: store.listAllowedEmails() };
+    } catch (error) {
+      return reply.code(400).send({ error: { message: safeError(error).message } });
+    }
+  });
+  app.post('/api/whitelist/remove', async (req) => {
+    store.removeAllowedEmail(String((req.body as { email?: string })?.email ?? ''));
+    return { emails: store.listAllowedEmails() };
+  });
   app.post('/api/logout', async (_, reply) => {
     reply.header('Set-Cookie', 'datalom_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0');
     return { ok: true };
   });
-  app.get('/api/overview', async () => ({
-    accounts: store.listAccounts(),
-    tasks: store.listTasks(),
-    evidence: store.listEvidence(),
-    metrics: store.metrics(),
-    workers: store.workers(),
-    adapter: {
-      version: 'tiktok-web@0.1.0',
-      status: 'implemented',
-      signatureVersion: '5.3.2 / 2.0.0.561',
-      operations: ['video.detail', 'video.comments'],
-      productionBrowser: false,
-    },
-  }));
   app.get('/api/openapi.json', async () => app.swagger());
-  app.get('/api/settings', async () => {
-    const c = store.getSetting<RoxyConfig>('roxy') ?? defaultConfig;
-    return { ...c, apiKey: undefined, hasApiKey: !!c.apiKey };
+  function listAccounts() {
+    return store.listAccounts().map((account) => {
+      const proxy = accountProxy(store.getSecret(account.id));
+      return {
+        ...account,
+        proxy: proxy ? { protocol: proxy.protocol, host: proxy.host, port: proxy.port } : null,
+        proxyCheck: store.getSetting(`proxy-check:${account.id}`) ?? null,
+      };
+    });
+  }
+  app.get('/api/accounts', async () => listAccounts());
+  app.post('/api/accounts/:id/session/check', { schema: { params: idParams } }, async (req) => {
+    const { id } = req.params as { id: string };
+    const account = store.getAccount(id),
+      lease = store.lease(id, true);
+    if (!lease) throw new DatalomError('CONFLICT', '账号正在执行或冷却，请稍后再试');
+    try {
+      const secret = store.getSecret(id);
+      const result = await checkStoredSession(secret, account.platform);
+      secret.observed.sessionCheck = result;
+      store.saveSecret(
+        id,
+        account.version,
+        secret,
+        lease,
+        result.status === 'valid' ? result.identity : undefined,
+      );
+      if (result.status === 'login_required') store.status(id, 'login_required', result.reason);
+      else if (result.status === 'valid' && account.status === 'login_required')
+        store.status(id, 'pending', '会话有效，等待采集接口验证');
+      return result;
+    } finally {
+      store.release(id, lease);
+    }
   });
-  app.put(
-    '/api/settings',
-    {
-      schema: {
-        body: {
-          type: 'object',
-          required: ['host', 'workspaceId', 'upstream'],
-          additionalProperties: false,
-          properties: {
-            host: string,
-            workspaceId: string,
-            apiKey: string,
-            upstream: {
-              type: 'object',
-              additionalProperties: false,
-              required: ['protocol', 'host', 'port'],
-              properties: {
-                protocol: { enum: ['http', 'https', 'socks5'] },
-                host: string,
-                port: { type: 'integer', minimum: 1, maximum: 65535 },
-              },
-            },
-          },
-        },
-      },
-    },
-    async (req) => {
-      const c = req.body as RoxyConfig;
-      validateProxy(c.upstream);
-      new RoxyConnector(c);
-      const old = store.getSetting<RoxyConfig>('roxy');
-      store.setSetting('roxy', { ...c, apiKey: c.apiKey || old?.apiKey });
-      return { ok: true };
-    },
-  );
-  const connector = () => new RoxyConnector(store.getSetting<RoxyConfig>('roxy') ?? defaultConfig);
-  app.get('/api/roxy/workspaces', async () => {
-    const ws = await connector().workspaces();
-    return ws.map((w) => ({
-      id: String(w.id),
-      name: w.workspaceName ?? w.name ?? String(w.id),
-    }));
+  app.post('/api/accounts/:id/proxy/check', { schema: { params: idParams } }, async (req) => {
+    const { id } = req.params as { id: string };
+    store.getAccount(id);
+    const lease = store.lease(id, true);
+    if (!lease) throw new DatalomError('CONFLICT', '账号正在执行、冷却或已禁用');
+    try {
+      const result = await checkProxy(store.getSecret(id));
+      store.setSetting(`proxy-check:${id}`, result);
+      return result;
+    } catch (error) {
+      store.setSetting(`proxy-check:${id}`, { available: false, checkedAt: Date.now() });
+      throw error;
+    } finally {
+      store.release(id, lease);
+    }
   });
-  app.get('/api/roxy/profiles', async () => connector().profiles());
-  app.post('/api/roxy/profiles/:id/extract', { schema: { params: idParams } }, async (req) => {
-    const { id } = req.params as any;
-    const c = connector();
-    const r = await c.extract(id);
-    const account = store.importAccount(
-      {
-        profileId: id,
-        workspaceId: c.config.workspaceId,
-        label: r.label,
-        identity: r.identity,
-      },
-      r.secret,
-    );
-    store.evidence(
-      account.id,
-      'extraction',
-      `提取 ${r.secret.cookies.length} 条平台 Cookie；${r.warnings.length} 项待验证`,
-      { warnings: r.warnings, observed: r.secret.observed },
-    );
-    return { account, warnings: r.warnings };
-  });
-  app.get('/api/accounts', async () => store.listAccounts());
   app.get('/api/accounts/:id/scheduling', { schema: { params: idParams } }, async (req) => ({
     ...store.accountPolicy((req.params as { id: string }).id),
     maxConcurrent: 1,
@@ -299,7 +311,7 @@ export async function buildApp(
           type: 'object',
           required: ['minIntervalMs'],
           additionalProperties: false,
-          properties: { minIntervalMs: { type: 'integer', minimum: 3000, maximum: 3600000 } },
+          properties: { minIntervalMs: { type: 'integer', minimum: 0, maximum: 3600000 } },
         },
       },
     },
@@ -309,21 +321,6 @@ export async function buildApp(
       return { ...store.accountPolicy(id), maxConcurrent: 1 };
     },
   );
-  app.post(
-    '/api/accounts/:id/prepare',
-    {
-      schema: {
-        params: idParams,
-        body: {
-          type: 'object',
-          required: ['video'],
-          additionalProperties: false,
-          properties: { video: { type: 'string', maxLength: 2048 } },
-        },
-      },
-    },
-    async (req) => prepareAccount(store, (req.params as any).id, (req.body as any).video),
-  );
   app.get('/api/accounts/:id', { schema: { params: idParams } }, async (req) => {
     const { id } = req.params as any,
       a = store.getAccount(id),
@@ -331,13 +328,18 @@ export async function buildApp(
     return {
       ...a,
       cookieCount: s.cookies.length,
+      proxy: (() => {
+        const p = accountProxy(s);
+        return p ? { protocol: p.protocol, host: p.host, port: p.port } : null;
+      })(),
+      proxyCheck: store.getSetting(`proxy-check:${id}`) ?? null,
       observed: s.observed,
       route: s.route
         ? {
             upstream: {
-              protocol: s.route.upstream.protocol,
-              host: s.route.upstream.host,
-              port: s.route.upstream.port,
+              protocol: s.route.upstream?.protocol,
+              host: s.route.upstream?.host,
+              port: s.route.upstream?.port,
             },
             account: {
               protocol: s.route.account.protocol,
@@ -390,7 +392,7 @@ export async function buildApp(
     };
     try {
       const s = store.getSecret(id);
-      handle = await startRoute(s.route, store.dir, trace);
+      handle = await openAccountRoute(s);
       const t = new HttpTransport(handle.url, new CookieJar(), {}, ['api.ipify.org'], trace);
       const r = await t.request('https://api.ipify.org?format=json', {
         signal: AbortSignal.timeout(20000),
@@ -403,7 +405,8 @@ export async function buildApp(
       }
       if (r.status !== 200 || !ip || !/^[\da-f.:]+$/i.test(ip))
         throw new DatalomError('PROXY_UNAVAILABLE', '无法确认代理出口');
-      s.route!.observedIp = ip;
+      if (!s.route) s.route = { account: accountProxy(s) as any };
+      s.route.observedIp = ip;
       const match = !!s.route!.expectedIp && s.route!.expectedIp === ip;
       s.route!.verifiedAt = match ? Date.now() : undefined;
       store.saveSecret(id, a.version, s, lease);
@@ -421,91 +424,13 @@ export async function buildApp(
       store.release(id, lease);
     }
   });
-  app.post(
-    '/api/tasks',
-    {
-      schema: {
-        body: taskBody,
-        response: { 202: apiContract.components.schemas.Task },
-      },
-    },
-    async (req, reply) => {
-      const { requestId, deadline, ...input } = req.body as TaskInput & {
-        requestId?: string;
-        deadline?: number;
-      };
-      normalizeVideo(input.video);
-      if (deadline && (deadline <= Date.now() || deadline > Date.now() + 3600000))
-        throw new DatalomError('INVALID_INPUT', '截止时间应在未来一小时内');
-      reply.code(202);
-      return store.enqueue(input, requestId, deadline);
-    },
-  );
-  app.get(
-    '/api/tasks',
-    {
-      schema: {
-        response: {
-          200: { type: 'array', items: apiContract.components.schemas.Task },
-        },
-      },
-    },
-    async () => store.listTasks(),
-  );
-  app.get(
-    '/api/tasks/:id',
-    {
-      schema: {
-        params: idParams,
-        response: { 200: apiContract.components.schemas.Task },
-      },
-    },
-    async (req) => store.task((req.params as any).id),
-  );
-  app.get('/api/diagnostics/events', async () => store.diagnostics.events());
-  app.get('/api/tasks/:id/diagnostics', { schema: { params: idParams } }, async (req) =>
-    store.diagnostics.bundle(store.task((req.params as any).id)),
-  );
-  app.put(
-    '/api/tasks/:id/diagnosis',
-    {
-      schema: {
-        params: idParams,
-        body: {
-          type: 'object',
-          additionalProperties: false,
-          required: ['revision', 'state', 'certainty', 'cause', 'nextExperiment', 'fix'],
-          properties: {
-            revision: { type: 'integer', minimum: 1 },
-            state: {
-              type: 'string',
-              enum: ['open', 'investigating', 'blocked', 'resolved'],
-            },
-            certainty: {
-              type: 'string',
-              enum: ['unconfirmed', 'hypothesis', 'confirmed'],
-            },
-            cause: { type: 'string', minLength: 1, maxLength: 8000 },
-            nextExperiment: { type: 'string', maxLength: 8000 },
-            fix: { type: 'string', maxLength: 8000 },
-            regressionTaskId: { type: 'string', maxLength: 100 },
-          },
-        },
-      },
-    },
-    async (req) => store.diagnostics.update(store.task((req.params as any).id), req.body as any),
-  );
-  app.post('/api/tasks/:id/cancel', { schema: { params: idParams } }, async (req) => {
-    store.cancel((req.params as any).id);
-    return { ok: true };
-  });
   for (const operation of ['video.detail', 'video.comments'] as const) {
     app.post(
       `/api/v1/tiktok/${operation === 'video.detail' ? 'video' : 'comments'}`,
       {
         schema: {
-          body: apiContract.components.schemas.TikTokSubmission,
-          response: { 202: apiContract.components.schemas.Task },
+          body: schemas.TikTokSubmission,
+          response: { 202: schemas.Task },
         },
       },
       async (req, reply) => {

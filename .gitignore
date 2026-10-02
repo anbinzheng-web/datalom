@@ -4,8 +4,10 @@ dist/
 .env
 test-results/
 *.log
-artifacts/
 .next
 
 .datalom/
-config/roxy.json
+
+.next-dev/
+
+*.tsbuildinfo

@@ -4,7 +4,7 @@ import {
   type PageResult,
   type PlatformAdapter,
   type TaskInput,
-} from "@datalom/runtime-node/contracts";
+} from "@datalom/shared/runtime/contracts";
 import { signInProcess } from "./signer-process.ts";
 import { cookieJar } from "@datalom/network-node/cookies";
 export function normalizeVideo(value: string): { id: string; url?: string } {

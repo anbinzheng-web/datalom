@@ -1,9 +1,9 @@
 import { createHash, randomUUID } from "node:crypto";
 import { parseHTML } from "linkedom";
 import { CookieJar } from "tough-cookie";
-import { DatalomError } from "@datalom/runtime-node/contracts";
-import { errorRecord } from "@datalom/runtime-node/diagnostics";
-import type { Store } from "@datalom/storage-node/store";
+import { DatalomError } from "@datalom/shared/runtime/contracts";
+import { errorRecord } from "@datalom/shared/runtime/diagnostics";
+import type { Store } from "@datalom/shared/storage/store";
 import {
   inspectDoubaoStream,
   parseDoubaoSSE,

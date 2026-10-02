@@ -2,8 +2,8 @@ import {
   DatalomError,
   type ExecutionContext,
   type RequestTemplate,
-} from "@datalom/runtime-node/contracts";
-import { errorRecord } from "@datalom/runtime-node/diagnostics";
+} from "@datalom/shared/runtime/contracts";
+import { errorRecord } from "@datalom/shared/runtime/diagnostics";
 import { cookieJar } from "@datalom/network-node/cookies";
 import { signInProcess } from "./signer-process.ts";
 import { parseApi } from "./adapter.ts";
@@ -11,6 +11,13 @@ import { parseApi } from "./adapter.ts";
 // Internal original-endpoint interface. No public HTTP routes or browser dependency.
 // Every entry below is backed by an encrypted successful browser capture.
 export const nativeEndpoints = {
+  "video.detail": {
+    path: "/api/item/detail/", fields: ["itemId"], required: ["itemId"], object: "itemInfo",
+  },
+  "video.comments": {
+    path: "/api/comment/list/", fields: ["aweme_id", "cursor", "count"], required: ["aweme_id"],
+    list: "comments", cursor: "cursor", more: "has_more",
+  },
   "live.feed": {
     origin: "https://webcast.us.tiktok.com",
     path: "/webcast/feed/",
@@ -246,6 +253,8 @@ export function validateNativeInput(
     if (
       [
         "item_id",
+        "itemId",
+        "aweme_id",
         "comment_id",
         "challengeID",
         "musicId",
@@ -309,6 +318,10 @@ export function parseNative(
     if (result.hasMore && result.cursor === (input.parameters.cursor ?? "0"))
       fail("游标未推进");
   }
+  if (input.operation === "video.detail" && String(raw.itemInfo?.itemStruct?.id) !== input.parameters.itemId)
+    fail("视频详情 ID 不匹配");
+  if (input.operation === "video.comments" && raw.comments.some((c: any) => !c || typeof c.cid !== "string"))
+    fail("评论 ID 缺失");
   if (input.operation === "comment.replies") {
     const ids = new Set<string>();
     for (const c of raw.comments) {

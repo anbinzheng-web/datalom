@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { CookieJar } from "tough-cookie";
-import { DatalomError } from "@datalom/runtime-node/contracts";
-import type { Store } from "@datalom/storage-node/store";
+import { DatalomError } from "@datalom/shared/runtime/contracts";
+import type { Store } from "@datalom/shared/storage/store";
 import { assertDoubaoAnonymousCookies } from "./anonymous.ts";
 
 export interface DoubaoConversation {

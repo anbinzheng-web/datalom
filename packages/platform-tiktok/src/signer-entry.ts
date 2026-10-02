@@ -1,5 +1,5 @@
 import { signRequest, type SignInput } from "./signer.ts";
-import { DatalomError } from "@datalom/runtime-node/contracts";
+import { DatalomError } from "@datalom/shared/runtime/contracts";
 process.once("message", (input: SignInput) => {
   try {
     process.send?.({ url: signRequest(input) });

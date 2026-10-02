@@ -1,8 +1,8 @@
 import { Impit } from "impit";
 import { cookieJar } from "@datalom/network-node/cookies";
-import { DatalomError } from "@datalom/runtime-node/contracts";
-import type { Trace } from "@datalom/runtime-node/diagnostics";
-import { errorRecord } from "@datalom/runtime-node/diagnostics";
+import { DatalomError } from "@datalom/shared/runtime/contracts";
+import type { Trace } from "@datalom/shared/runtime/diagnostics";
+import { errorRecord } from "@datalom/shared/runtime/diagnostics";
 import type { FacebookSession } from "./session.ts";
 export class FacebookTransport {
  private jar;private client;

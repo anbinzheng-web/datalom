@@ -12,7 +12,7 @@ import {
   writeRecords,
   type SignatureRecord,
 } from "./signature-codec.ts";
-import { DatalomError } from "@datalom/runtime-node/contracts";
+import { DatalomError } from "@datalom/shared/runtime/contracts";
 const signatures = ["X-Bogus", "X-Gnarly", "X-Dynosaur", "_signature"];
 export interface SignInput {
   templateUrl: string;

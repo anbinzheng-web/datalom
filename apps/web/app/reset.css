@@ -1,0 +1,56 @@
+@layer base {
+  /* Browser normalization only; component spacing stays in the site styles. */
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    tab-size: 4;
+  }
+  body {
+    margin: 0;
+    min-width: 320px;
+  }
+  :where(h1, h2, h3, h4, h5, h6, p, figure, blockquote, dl, dd, pre) {
+    margin: 0;
+  }
+  :where(h1, h2, h3, h4, h5, h6) {
+    font-size: inherit;
+    font-weight: inherit;
+  }
+  :where(button, input, select, textarea) {
+    font: inherit;
+    color: inherit;
+    letter-spacing: inherit;
+    margin: 0;
+  }
+  :where(button, input) {
+    overflow: visible;
+  }
+  :where(button, select) {
+    text-transform: none;
+  }
+  :where(button, [type='button'], [type='submit'], [type='reset']) {
+    -webkit-appearance: button;
+    appearance: button;
+  }
+  :where(img, video, canvas) {
+    display: block;
+    max-width: 100%;
+    height: auto;
+  }
+  :where(svg) {
+    vertical-align: middle;
+  }
+  table {
+    border-collapse: collapse;
+    border-spacing: 0;
+  }
+  [hidden]:not([hidden='until-found']) {
+    display: none !important;
+  }
+  /* Keep native details, month pickers, and visible keyboard focus intact. */
+}

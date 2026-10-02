@@ -1,8 +1,8 @@
-import { sourceMode, nodeLoaderArgs } from "@datalom/runtime-node/paths";
+import { sourceMode, nodeLoaderArgs } from "@datalom/shared/runtime/paths";
 import { fork } from "node:child_process";
-import { DatalomError } from "@datalom/runtime-node/contracts";
+import { DatalomError } from "@datalom/shared/runtime/contracts";
 import type { SignInput } from "./signer.ts";
-import { errorRecord } from "@datalom/runtime-node/diagnostics";
+import { errorRecord } from "@datalom/shared/runtime/diagnostics";
 export function signInProcess(
   input: SignInput,
   signal: AbortSignal,
