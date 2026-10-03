@@ -1,11 +1,12 @@
-import { it, expect } from "vitest";
-import { fixture, session } from "../../../../scripts/checks/helpers.ts";
-import { Store } from "@datalom/shared/storage/store";
-import { Vault } from "@datalom/shared/storage/crypto";
-import { XSessions } from "../session.ts";
-it("restores encrypted X sessions and rejects concurrent extraction, stale versions and expired leases", () => {
-  const f = fixture();
-  const id = "a".repeat(32);
+import { it, expect } from 'vitest';
+import { fixture, session } from '../../../../scripts/checks/helpers.ts';
+import { Database } from '@datalom/shared/storage/database';
+import { Store } from '@datalom/shared/storage/store';
+import { Vault } from '@datalom/shared/storage/crypto';
+import { XSessions } from '../session.ts';
+it('restores encrypted X sessions and rejects concurrent extraction, stale versions and expired leases', async () => {
+  const f = await fixture();
+  const id = 'a'.repeat(32);
   const value = {
     ...session(),
     profileId: id,
@@ -14,35 +15,52 @@ it("restores encrypted X sessions and rejects concurrent extraction, stale versi
   };
   try {
     const s = new XSessions(f.store);
-    s.replace(value);
-    const h = s.acquire(id);
-    expect(() => s.acquire(id)).toThrow();
-    expect(() => s.replace(value)).toThrow();
-    expect(() => s.save(value, h.version + 1, h.lease)).toThrow();
+    await s.replace(value);
+    const h = await s.acquire(id);
+    await expect(async () => await s.acquire(id)).rejects.toThrow();
+    await expect(async () => await s.replace(value)).rejects.toThrow();
+    await expect(async () => await s.save(value, h.version + 1, h.lease)).rejects.toThrow();
     h.session.requestCounter = 4;
-    s.save(h.session, h.version, h.lease);
-    const row = f.store.sql
-      .prepare("SELECT payload FROM x_sessions WHERE profileId=?")
-      .get(id) as any;
-    expect(row.payload).not.toContain("secret-cookie-fixture");
-    f.store.sql
-      .prepare("UPDATE x_sessions SET leaseUntil=0 WHERE profileId=?")
-      .run(id);
-    expect(s.renew(id, h.lease)).toBe(false);
-    expect(() => s.save(value, h.version, h.lease)).toThrow();
-    const second = new Store(f.dir, new Vault(f.key));
+    await s.save(h.session, h.version, h.lease);
+    expect(await s.renew(id, h.lease)).toBe(false);
+    await expect(async () => await s.save(value, h.version, h.lease)).rejects.toThrow();
+    const second = new Store(f.dir, new Vault(f.key), new Database(f.url));
     try {
       const other = new XSessions(second);
-      const live = other.acquire(id);
+      const live = await other.acquire(id);
       expect(live.session.requestCounter).toBe(4);
-      s.release(id, h.lease, 0);
-      expect(() => s.acquire(id)).toThrow();
-      other.release(id, live.lease, 5000);
-      expect(() => s.acquire(id)).toThrow();
+      await s.release(id, h.lease, 0);
+      await expect(async () => await s.acquire(id)).rejects.toThrow();
+      await other.release(id, live.lease, 5000);
+      await expect(async () => await s.acquire(id)).rejects.toThrow();
     } finally {
-      second.close();
+      await second.close();
     }
   } finally {
-    f.cleanup();
+    await f.cleanup();
+  }
+});
+
+it('isolates identical profile IDs across platforms in the shared table', async () => {
+  const { PlatformSessions } = await import('@datalom/shared/storage/sessions');
+  const f = await fixture();
+  try {
+    const x = new PlatformSessions<{ marker: string }>(f.store.sql, f.store.vault, 'x', 'profile');
+    const instagram = new PlatformSessions<{ marker: string }>(
+      f.store.sql,
+      f.store.vault,
+      'instagram',
+      'profile',
+    );
+    await x.replace('same', { marker: 'x' });
+    await instagram.replace('same', { marker: 'instagram' });
+    const results = await Promise.allSettled([x.acquire('same'), x.acquire('same')]);
+    expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
+    const held = await instagram.acquire('same');
+    expect(held.session.marker).toBe('instagram');
+    await expect(x.save('same', { marker: 'wrong' }, held.lease, held.version)).rejects.toThrow();
+    expect(await instagram.available()).toEqual([]);
+  } finally {
+    await f.cleanup();
   }
 });

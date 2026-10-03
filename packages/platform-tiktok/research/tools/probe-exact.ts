@@ -1,23 +1,23 @@
-import { Impit } from "impit";
-import { openStore } from "@datalom/shared/storage/runtime";
-import { startRoute } from "@datalom/network-node/route";
-import { signInProcess } from "@datalom/platform-tiktok/signer-process";
-const s = openStore(),
-  a = s.listAccounts().find((a) => a.profileId === process.argv[2])!,
-  secret = s.getSecret(a.id),
-  t = secret.research!.requestTemplates!["video.comments"];
+import { Impit } from 'impit';
+import { openStore } from '@datalom/shared/storage/runtime';
+import { startRoute } from '@datalom/network-node/route';
+import { signInProcess } from '@datalom/platform-tiktok/signer-process';
+const s = await openStore(),
+  a = (await s.listAccounts()).find((a) => a.profileId === process.argv[2])!,
+  secret = await s.getSecret(a.id),
+  t = secret.research!.requestTemplates!['video.comments'];
 const route = await startRoute(secret.route, s.dir);
 try {
   const url = await signInProcess(
     {
       templateUrl: t.url,
-      userAgent: t.headers["user-agent"],
-      updates: { cursor: process.argv[3] ?? "0" },
+      userAgent: t.headers['user-agent'],
+      updates: { cursor: process.argv[3] ?? '0' },
     },
     AbortSignal.timeout(5000),
   );
   const client = new Impit({
-    browser: "chrome151",
+    browser: 'chrome151',
     proxyUrl: route.url,
     http3: false,
     followRedirects: false,
@@ -26,10 +26,8 @@ try {
   const headers = Object.fromEntries(
     Object.entries(t.headers).filter(
       ([k]) =>
-        !k.startsWith(":") &&
-        !["host", "content-length", "connection", "accept-encoding"].includes(
-          k,
-        ),
+        !k.startsWith(':') &&
+        !['host', 'content-length', 'connection', 'accept-encoding'].includes(k),
     ),
   );
   const r = await client.fetch(url, {
@@ -43,7 +41,7 @@ try {
   } catch {}
   const result = {
     browserUsed: false,
-    signature: "node-generated",
+    signature: 'node-generated',
     status: r.status,
     bytes: body.length,
     code: j?.status_code,
@@ -51,14 +49,13 @@ try {
     cursor: j?.cursor,
     hasMore: j?.has_more,
   };
-  s.evidence(
-    a.id,
-    "independent-experiment",
-    "独立签名与请求 · " + body.length + " bytes",
-    { result, url, body },
-  );
+  await s.evidence(a.id, 'independent-experiment', '独立签名与请求 · ' + body.length + ' bytes', {
+    result,
+    url,
+    body,
+  });
   console.log(JSON.stringify(result));
 } finally {
   await route.stop();
-  s.close();
+  await s.close();
 }

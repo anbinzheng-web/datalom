@@ -18,6 +18,9 @@ export async function readCollectorConfig(path: string): Promise<CollectorConfig
     throw new Error('配置文件无法读取或 JSON 格式无效');
   }
   if (!value || typeof value !== 'object') throw new Error('配置必须是对象');
+  value.host = process.env.ROXY_HOST ?? '';
+  value.apikey = process.env.ROXY_API_KEY ?? '';
+  value.workspaceId = process.env.ROXY_WORKSPACE_ID ?? '';
   if (
     typeof value.workspaceId === 'number' &&
     Number.isSafeInteger(value.workspaceId) &&
@@ -116,7 +119,7 @@ export async function collectProfiles(
             try {
               const result = await connector.extract(profile.dirId, platform, true);
               stage = 'store';
-              const account = store.importAccount(
+              const account = await store.importAccount(
                 {
                   platform,
                   workspaceId: config.workspaceId,
@@ -127,19 +130,20 @@ export async function collectProfiles(
                 result.secret,
               );
               const check = result.secret.observed.sessionCheck as
-                | { status: string; reason?: string; httpStatus?: number }
-                | undefined;
+                { status: string; reason?: string; httpStatus?: number } | undefined;
               const sessionStatus = check?.status ?? 'unknown';
               const sessionReason =
-                check?.reason && /^[A-Za-z0-9_]{1,80}$/.test(check.reason) ? check.reason : undefined;
+                check?.reason && /^[A-Za-z0-9_]{1,80}$/.test(check.reason)
+                  ? check.reason
+                  : undefined;
               const sessionHttpStatus =
                 typeof check?.httpStatus === 'number' && Number.isInteger(check.httpStatus)
                   ? check.httpStatus
                   : undefined;
               if (sessionStatus === 'login_required')
-                store.status(account.id, 'login_required', '账号信息接口确认未登录');
+                await store.status(account.id, 'login_required', '账号信息接口确认未登录');
               else if (!result.identity && sessionReason && sessionReason !== 'account_identity')
-                store.status(
+                await store.status(
                   account.id,
                   'pending',
                   [
@@ -149,7 +153,7 @@ export async function collectProfiles(
                     .filter(Boolean)
                     .join('，'),
                 );
-              store.evidence(
+              await store.evidence(
                 account.id,
                 'session-check',
                 [

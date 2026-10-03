@@ -14,8 +14,8 @@ export class DoubaoService {
   ) {
     this.sessions = new DoubaoSessions(store);
   }
-  request(body: unknown, req: FastifyRequest, reply: FastifyReply) {
-    const auth = this.api.authenticate(req, reply);
+  async request(body: unknown, req: FastifyRequest, reply: FastifyReply) {
+    const auth = await this.api.authenticate(req, reply);
     if (
       !body ||
       typeof body !== 'object' ||
@@ -35,41 +35,26 @@ export class DoubaoService {
       operation: 'chat.completion',
       parameters: {},
       paginated: false,
-      acquire: () => {
-        const rows = this.store.sql
-          .prepare('SELECT id FROM doubao_sessions WHERE leaseUntil<=?')
-          .all(Date.now()) as { id: string }[];
-        for (const { id } of rows) {
-          if ((this.store.getSetting<number>(`doubao-public-next:${id}`) ?? 0) > Date.now())
-            continue;
+      acquire: async () => {
+        const ids = await this.sessions.available();
+        for (const id of ids) {
           let held;
           try {
-            held = this.sessions.acquire(id);
+            held = await this.sessions.acquire(id);
           } catch {
             continue;
           }
           const { session, lease } = held;
           return {
             account: id,
-            renew: () =>
-              this.store.sql
-                .prepare(
-                  'UPDATE doubao_sessions SET leaseUntil=? WHERE id=? AND lease=? AND leaseUntil>?',
-                )
-                .run(Date.now() + 300000, id, lease, Date.now()).changes === 1,
-            release: (cooldown) => {
-              try {
-                this.store.setSetting(`doubao-public-next:${id}`, Date.now() + cooldown);
-              } finally {
-                this.sessions.release(id, lease);
-              }
-            },
+            renew: () => this.sessions.renew(id, lease),
+            release: (cooldown) => this.sessions.release(id, lease, cooldown),
             run: async (signal) => {
               const client = new DoubaoNative(
                 this.store,
                 session,
                 await loadDoubaoSDK(this.store),
-                () => this.sessions.save(session, lease),
+                async () => await this.sessions.save(session, lease),
               );
               // Every public request starts a new conversation; no cross-caller history reuse.
               const result = await client.chat(prompt, { newConversation: true, signal });

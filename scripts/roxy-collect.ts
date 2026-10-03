@@ -1,7 +1,10 @@
 import { resolve } from 'node:path';
 import { repositoryRoot } from '@datalom/shared/runtime/paths';
 import { openStore } from '@datalom/shared/storage/runtime';
-import { readCollectorConfig, collectProfiles } from '../packages/platform-tiktok/research/src/collector.ts';
+import {
+  readCollectorConfig,
+  collectProfiles,
+} from '../packages/platform-tiktok/research/src/collector.ts';
 
 try {
   const config = await readCollectorConfig(
@@ -13,7 +16,7 @@ try {
   if (process.argv.includes('--check')) {
     console.log(`Roxy config OK: ${config.profiles.length} profiles`);
   } else {
-    const store = openStore();
+    const store = await openStore();
     try {
       const result = await collectProfiles(config, store, (result) => {
         console.log(JSON.stringify(result));
@@ -25,7 +28,7 @@ try {
         process.exitCode = 1;
       }
     } finally {
-      store.close();
+      await store.close();
     }
   }
 } catch {

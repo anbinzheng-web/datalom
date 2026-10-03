@@ -20,8 +20,11 @@ export class TikTokService {
     @Inject(PublicApiService) private readonly api: PublicApiService,
   ) {}
 
-  private template(accountId: string, operation: NativeOperation): RequestTemplate | undefined {
-    const stored = this.store.getSecret(accountId).research?.requestTemplates?.[operation];
+  private async template(
+    accountId: string,
+    operation: NativeOperation,
+  ): Promise<RequestTemplate | undefined> {
+    const stored = (await this.store.getSecret(accountId)).research?.requestTemplates?.[operation];
     const valid = (template: RequestTemplate) => {
       try {
         const u = new URL(template.url);
@@ -38,13 +41,16 @@ export class TikTokService {
     };
     if (stored && valid(stored)) return stored;
     // Only encrypted successful captures belonging to this account can become templates.
-    const rows = this.store.sql
-      .prepare(
-        "SELECT id, createdAt FROM diagnostic_events WHERE accountId=? AND stage='tiktok-native-http' AND outcome='received' ORDER BY createdAt DESC LIMIT 200",
-      )
-      .all(accountId) as { id: string; createdAt: number }[];
+    const rows = (await this.store.diagnostics.findCached(
+      `captures:tiktok:${accountId}`,
+      (row) =>
+        row.accountId === accountId &&
+        row.stage === 'tiktok-native-http' &&
+        row.outcome === 'received',
+      200,
+    )) as { id: string; createdAt: number }[];
     for (const row of rows) {
-      const capture = this.store.diagnostics.rawEvent(row.id) as any;
+      const capture = (await this.store.diagnostics.rawEvent(row.id)) as any;
       if (capture?.method !== 'GET' || capture.status !== 200 || typeof capture.body !== 'string')
         continue;
       const template = { url: capture.url, headers: capture.headers, capturedAt: row.createdAt };
@@ -69,7 +75,7 @@ export class TikTokService {
     req: FastifyRequest,
     reply: FastifyReply,
   ) {
-    const auth = this.api.authenticate(req, reply);
+    const auth = await this.api.authenticate(req, reply);
     const def = endpoints[endpoint];
     const fields: Record<string, string> = def.fields;
     const parameters: Record<string, string> = {};
@@ -117,8 +123,8 @@ export class TikTokService {
       parameters,
       cursor: query.cursor as string | undefined,
       paginated: def.paginated,
-      template: (accountId) => this.template(accountId, def.operation),
-      run: (template, context, cursor) =>
+      template: async (accountId) => await this.template(accountId, def.operation),
+      run: async (template, context, cursor) =>
         executeNative(
           {
             operation: def.operation,

@@ -50,31 +50,88 @@ export async function openAccountRoute(secret: SessionSecret) {
   return startRoute({ account: account as ProxyEndpoint }, dataDirectory());
 }
 
+export interface ProxyCheckResult {
+  provider: 'ipify';
+  checkedAt: number;
+  durationMs: number;
+  available: boolean;
+  httpStatus: number | null;
+  data: unknown;
+  error: string | null;
+  ip?: string;
+}
+export class ProxyCheckError extends DatalomError {
+  constructor(readonly result: ProxyCheckResult) {
+    super('PROXY_UNAVAILABLE', '代理检测失败：连接、认证或检测渠道异常');
+  }
+}
 export async function checkProxy(
   secret: SessionSecret,
   createClient = (options: ConstructorParameters<typeof Impit>[0]) => new Impit(options),
   openRoute = openAccountRoute,
-) {
-  const route = await openRoute(secret);
-  const url = route.url;
+): Promise<ProxyCheckResult> {
   const started = Date.now();
+  const result: ProxyCheckResult = {
+    provider: 'ipify',
+    checkedAt: started,
+    durationMs: 0,
+    available: false,
+    httpStatus: null,
+    data: null,
+    error: null,
+  };
+  let route: Awaited<ReturnType<typeof openRoute>> | undefined;
+  let stage = 'ROUTE_FAILED';
   try {
-    const client = createClient({ proxyUrl: url, timeout: 15000, followRedirects: false });
+    route = await openRoute(secret);
+    stage = 'NETWORK_ERROR';
+    const client = createClient({ proxyUrl: route.url, timeout: 15000, followRedirects: false });
     const response = await client.fetch('https://api.ipify.org?format=json', {
       signal: AbortSignal.timeout(15000),
     });
-    if (response.status !== 200) throw new Error();
-    const body = (await response.json()) as { ip?: string };
-    if (!body.ip || !isIP(body.ip)) throw new Error();
-    return {
-      available: true,
-      ip: body.ip,
-      checkedAt: Date.now(),
-      durationMs: Date.now() - started,
+    result.httpStatus = response.status;
+    stage = 'INVALID_RESPONSE';
+    const raw = await response.json();
+    // Preserve provider fields, excluding authentication material or echoed proxy passwords.
+    const password = accountProxy(secret)?.password;
+    const redact = (value: any): any => {
+      if (typeof value === 'string')
+        return password ? value.replaceAll(password, '[REDACTED]') : value;
+      if (Array.isArray(value)) return value.map(redact);
+      if (value && typeof value === 'object')
+        return Object.fromEntries(
+          Object.entries(value)
+            .filter(
+              ([key]) =>
+                !/^(password|authorization|proxy-authorization|cookie|set-cookie|token)$/i.test(
+                  key,
+                ),
+            )
+            .map(([key, child]) => [key, redact(child)]),
+        );
+      return value;
     };
+    result.data = redact(raw);
+    if (response.status !== 200) {
+      stage = 'HTTP_ERROR';
+      throw new Error();
+    }
+    if (!raw || typeof raw.ip !== 'string' || !isIP(raw.ip)) throw new Error();
+    result.ip = raw.ip;
+    result.available = true;
   } catch {
-    throw new DatalomError('PROXY_UNAVAILABLE', '代理检测失败：连接超时、认证失败或出口服务不可达');
+    result.error = stage;
   } finally {
-    await route.stop();
+    if (route)
+      try {
+        await route.stop();
+      } catch {
+        result.available = false;
+        result.error = 'ROUTE_CLEANUP_FAILED';
+      }
+    result.checkedAt = Date.now();
+    result.durationMs = Date.now() - started;
   }
+  if (!result.available) throw new ProxyCheckError(result);
+  return result;
 }

@@ -1,0 +1,278 @@
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/storage/generated"
+  moduleFormat        = "esm"
+  importFileExtension = "ts"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// 采集平台账号：元数据与会话凭证统一保存，调度状态由进程内管理。
+model PlatformAccount {
+  /// 记录唯一标识（应用生成的 UUID 文本）。
+  id          String  @id
+  /// 平台标识，例如 tiktok、x、instagram。
+  platform    String
+  /// 来源 JSON；type 表示来源类型，id 表示来源标识，其余字段保存来源差异信息。
+  source      Json
+  /// 平台账号展示标识；尚未识别时可为空字符串，不作为唯一主键。
+  identity    String
+  /// 账号状态：pending、ready、cooldown、login_required、disabled。
+  status      String
+  /// 最后更新时间，UTC Unix 毫秒。
+  updatedAt   BigInt
+  /// 最近一次标记为 ready 的时间，UTC Unix 毫秒；NULL 表示尚无记录。
+  validatedAt BigInt?
+  /// 会话 JSON，保存 Cookie、Token 及平台差异内容；明文存储，不应直接返回公开接口。
+  payload     Json?
+  /// 关联代理 ID；NULL 表示未关联代理。
+  proxyId     String?
+  /// Prisma 关联字段：账号使用的代理，不是额外数据库列。
+  proxy       Proxy?  @relation(fields: [proxyId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@index([platform])
+  @@index([proxyId])
+  @@map("platform_accounts")
+}
+
+/// 个人用户；邮箱密码登录已接通，注册及邮件流程仍需业务实现。
+model User {
+  /// 带随机盐的 scrypt 编码（scrypt:盐:派生值）；NULL 表示未设置密码。
+  passwordHash          String?
+  /// JWT 撤销版本；与令牌中的版本比较，使旧登录凭证失效。
+  authVersion           Int              @default(0)
+  /// 记录唯一标识（应用生成的 UUID 文本）。
+  id                    String           @id
+  /// 去除首尾空白并转小写的邮箱，由应用规范化。
+  email                 String
+  /// 用户角色：admin 或 user。
+  role                  String
+  /// 用户设置的显示名称。
+  name                  String           @default("")
+  /// 用户头像地址，未设置时为空字符串。
+  avatarUrl             String           @default("")
+  /// 禁用标记：0 正常，1 禁用。
+  disabled              Int              @default(0)
+  /// 创建时间，UTC Unix 毫秒。
+  createdAt             BigInt
+  /// 最后更新时间，UTC Unix 毫秒。
+  updatedAt             BigInt
+  /// 邮箱验证时间，UTC Unix 毫秒；NULL 表示未确认验证。
+  emailVerifiedAt       BigInt?
+  /// Prisma 关联字段：第三方身份集合，不是数据库列。
+  user_identitiesRows   UserIdentity[]
+  /// Prisma 关联字段：邮件令牌集合，不是数据库列。
+  user_email_tokensRows UserEmailToken[]
+  /// Prisma 关联字段：用户 API Key 集合，不是数据库列。
+  user_api_keysRows     UserApiKey[]
+  /// Prisma 关联字段：用户钱包，不是数据库列。
+  wallet                Wallet?
+
+  @@unique([email])
+  @@map("users")
+}
+
+/// 第三方身份关联；以提供方和稳定 subject 标识身份，不保存第三方访问令牌。
+model UserIdentity {
+  /// 第三方身份提供方标识，例如 google、github。
+  provider      String
+  /// 提供方分配的稳定用户标识，区分大小写。
+  subject       String
+  /// 所属用户 ID。
+  userId        String
+  /// 创建时间，UTC Unix 毫秒。
+  createdAt     BigInt
+  /// 最后更新时间，UTC Unix 毫秒。
+  updatedAt     BigInt
+  /// Prisma 关联字段：所属用户，不是数据库列。
+  usersRelation User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([provider, subject])
+  @@index([userId], map: "user_identities_user")
+  @@map("user_identities")
+}
+
+/// 旧第三方登录的邮箱域名准入名单。
+model EmailWhitelist {
+  /// 允许登录的邮箱域名条目，例如 @gmail.com；沿用旧字段名。
+  email     String @id
+  /// 创建时间，UTC Unix 毫秒。
+  createdAt BigInt
+
+  @@map("email_whitelist")
+}
+
+/// 邮箱验证及密码重置令牌存储预留；不代表邮件流程已上线。
+model UserEmailToken {
+  /// 记录唯一标识（应用生成的 UUID 文本）。
+  id            String  @id
+  /// 所属用户 ID。
+  userId        String
+  /// 令牌用途：verify_email（验证邮箱）或 reset_password（重置密码）。
+  purpose       String
+  /// 令牌绑定的目标邮箱；消费时需核验目标邮箱与用途。
+  email         String
+  /// 令牌摘要，唯一；不保存原始令牌。
+  tokenHash     String
+  /// 创建时间，UTC Unix 毫秒。
+  createdAt     BigInt
+  /// 到期时间，UTC Unix 毫秒。
+  expiresAt     BigInt
+  /// 令牌消费时间，UTC Unix 毫秒；NULL 表示尚未消费。
+  consumedAt    BigInt?
+  /// Prisma 关联字段：所属用户，不是数据库列。
+  usersRelation User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tokenHash])
+  @@index([expiresAt], map: "user_email_tokens_expiry")
+  @@index([userId, purpose], map: "user_email_tokens_user_purpose")
+  @@map("user_email_tokens")
+}
+
+/// 用户 API Key 存储预留；不代表用户 Key 鉴权已接通。
+model UserApiKey {
+  /// 记录唯一标识（应用生成的 UUID 文本）。
+  id            String  @id
+  /// 所属用户 ID。
+  userId        String
+  /// 用户为此 API Key 设置的名称。
+  name          String
+  /// API Key 摘要，唯一；不保存完整原始 Key。
+  keyHash       String
+  /// 用于展示和识别的 Key 前缀。
+  keyPrefix     String
+  /// 用于展示的 Key 末四位。
+  keyLast4      String
+  /// 创建时间，UTC Unix 毫秒。
+  createdAt     BigInt
+  /// 到期时间，UTC Unix 毫秒；NULL 表示不设到期时间。
+  expiresAt     BigInt?
+  /// 撤销时间，UTC Unix 毫秒；NULL 表示尚未撤销。
+  revokedAt     BigInt?
+  /// 最近使用时间，UTC Unix 毫秒；NULL 表示尚无使用记录。
+  lastUsedAt    BigInt?
+  /// Prisma 关联字段：所属用户，不是数据库列。
+  usersRelation User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Prisma 关联字段：此 Key 的结算流水，不是数据库列。
+  walletTransactions WalletTransaction[]
+  /// Prisma 关联字段：每日调用统计，不是数据库列。
+  dailyUsage         ApiUsageDaily[]
+
+  @@unique([id, userId])
+  @@unique([keyHash])
+  @@index([userId], map: "user_api_keys_user")
+  @@map("user_api_keys")
+}
+
+/// 用户钱包，一人一个；账务存储不代表支付充值渠道已接通。
+model Wallet {
+  /// 钱包所属用户 ID，同时是钱包主键。
+  userId        String              @id
+  /// 币种代码，当前默认 CNY；钱包内金额统一使用该币种。
+  currency      String              @default("CNY") @db.VarChar(3)
+  /// 余额，整数微单位；1 元人民币 = 1,000,000 微单位。
+  balanceMicros BigInt              @default(0)
+  /// 创建时间，UTC Unix 毫秒。
+  createdAt     BigInt
+  /// 最后更新时间，UTC Unix 毫秒。
+  updatedAt     BigInt
+  /// Prisma 关联字段：钱包所属用户，不是数据库列。
+  user          User                @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  /// Prisma 关联字段：钱包资金流水，不是数据库列。
+  transactions  WalletTransaction[]
+  /// Prisma 关联字段：每日调用统计，不是数据库列。
+  dailyUsage    ApiUsageDaily[]
+
+  @@map("wallets")
+}
+
+/// 充值或调用结算流水；类型与业务参考号共同保证幂等。
+model WalletTransaction {
+  /// 记录唯一标识（应用生成的 UUID 文本）。
+  id                 String      @id
+  /// 所属用户 ID。
+  userId             String
+  /// 流水类型：topup（充值）或 usage（调用结算）。
+  type               String
+  /// 业务幂等参考号，例如充值订单号或结算批次号；同类型内唯一。
+  reference          String
+  /// 本次余额变动，整数微单位；充值为正，调用扣费为负或零。
+  amountMicros       BigInt
+  /// 本笔入账后的钱包余额，整数微单位。
+  balanceAfterMicros BigInt
+  /// 调用结算关联的 API Key ID；充值流水为 NULL。
+  apiKeyId           String?
+  /// 调用结算所属 UTC 日期；充值流水为 NULL。
+  usageDate          DateTime?   @db.Date
+  /// 本批结算的调用总次数；充值流水默认 0。
+  calls              BigInt      @default(0)
+  /// 本批结算的失败调用次数；充值流水默认 0。
+  failedCalls        BigInt      @default(0)
+  /// 创建时间，UTC Unix 毫秒。
+  createdAt          BigInt
+  /// Prisma 关联字段：用户钱包，不是数据库列。
+  wallet             Wallet      @relation(fields: [userId], references: [userId], onDelete: Restrict, onUpdate: Restrict)
+  /// Prisma 关联字段：归属于同一用户的 API Key，不是数据库列。
+  apiKey             UserApiKey? @relation(fields: [apiKeyId, userId], references: [id, userId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([type, reference])
+  @@index([userId, createdAt])
+  @@map("wallet_transactions")
+}
+
+/// 按用户、API Key、UTC 日期聚合调用费用；统计保留最近 12 个月。
+model ApiUsageDaily {
+  /// 所属用户 ID。
+  userId      String
+  /// 关联的用户 API Key ID。
+  apiKeyId    String
+  /// 统计所属 UTC 日期（数据库 DATE，不包含时分秒）。
+  usageDate   DateTime   @db.Date
+  /// 调用总次数，包含失败次数。
+  calls       BigInt     @default(0)
+  /// 失败调用次数，应不大于总调用次数。
+  failedCalls BigInt     @default(0)
+  /// 累计调用费用，非负整数微单位。
+  costMicros  BigInt     @default(0)
+  /// 最后更新时间，UTC Unix 毫秒。
+  updatedAt   BigInt
+  /// Prisma 关联字段：用户钱包，不是数据库列。
+  wallet      Wallet     @relation(fields: [userId], references: [userId], onDelete: Restrict, onUpdate: Restrict)
+  /// Prisma 关联字段：归属于同一用户的 API Key，不是数据库列。
+  apiKey      UserApiKey @relation(fields: [apiKeyId, userId], references: [id, userId], onDelete: Restrict, onUpdate: Restrict)
+
+  @@id([userId, usageDate, apiKeyId])
+  @@index([userId, apiKeyId, usageDate])
+  @@index([usageDate])
+  @@map("api_usage_daily")
+}
+
+/// 代理池；账号通过 proxyId 关联，密码明文存储。
+model Proxy {
+  /// 记录唯一标识（应用生成的 UUID 文本）。
+  id          String            @id
+  /// 代理协议：http、https 或 socks5。
+  protocol    String
+  /// 代理主机名或 IP 地址，不包含协议和端口。
+  host        String
+  /// 代理端口，范围 1–65535。
+  port        Int
+  /// 代理认证用户名；无需认证时为空字符串。
+  username    String            @default("")
+  /// 代理认证密码，明文；NULL 表示无密码。
+  password    String?
+  /// 检测结果 JSON，包含渠道、返回数据、检测时间与错误等信息；未检测时为 NULL。
+  checkResult Json?
+  /// 创建时间，UTC Unix 毫秒。
+  createdAt   BigInt
+  /// 最后更新时间，UTC Unix 毫秒。
+  updatedAt   BigInt
+  /// Prisma 关联字段：使用此代理的账号集合，不是数据库列。
+  accounts    PlatformAccount[]
+
+  @@index([protocol, host, port, username])
+  @@map("proxies")
+}

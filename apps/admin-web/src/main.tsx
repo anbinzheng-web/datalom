@@ -10,7 +10,6 @@ import {
   Drawer,
   Form,
   Input,
-  InputNumber,
   Layout,
   Menu,
   Modal,
@@ -78,16 +77,14 @@ function Console() {
   const [busy, setBusy] = useState(''),
     [error, setError] = useState(''),
     [search, setSearch] = useState('');
-  const [detail, setDetail] = useState<any>(null),
-    [schedule, setSchedule] = useState<any>(null);
+  const [detail, setDetail] = useState<any>(null);
   const [page, setPage] = useState('accounts');
   const [people, setPeople] = useState<{ users: any[]; emails: any[] }>({ users: [], emails: [] });
   const [platform, setPlatform] = useState<string>();
   const [selected, setSelected] = useState<React.Key[]>([]);
   const [batchResults, setBatchResults] = useState<any[] | null>(null);
   const [batchProgress, setBatchProgress] = useState('');
-  const [detailForm] = Form.useForm(),
-    [scheduleForm] = Form.useForm();
+
   const refresh = async () => {
     setData({ accounts: await api('/accounts') });
     setAuthed(true);
@@ -119,20 +116,16 @@ function Console() {
     act('detail', async () => {
       const d = await api(`/accounts/${id}`);
       setDetail(d);
-      detailForm.setFieldsValue(d);
     });
   const accounts = data.accounts.filter(
     (a: any) =>
       (!platform || a.platform === platform) &&
-      [a.identity, a.label, a.browserNumber, a.profileId, a.notes]
+      [a.identity, a.browserNumber, a.profileId]
         .join(' ')
         .toLowerCase()
         .includes(search.toLowerCase()),
   );
-  const runBatch = async (
-    kind: 'proxy' | 'session' | 'schedule',
-    values?: { minIntervalMs: number },
-  ) => {
+  const runBatch = async (kind: 'proxy' | 'session') => {
     const targets = accounts.filter((a: any) => selected.includes(a.id));
     if (!targets.length || busy) return;
     setBusy('batch');
@@ -145,14 +138,10 @@ function Console() {
           if (kind === 'proxy' && !account.proxy) throw new Error('Proxy not configured');
           if (kind === 'session' && account.platform !== 'tiktok')
             throw new Error('Session checks are not supported for this platform');
-          const r = await api(
-            `/accounts/${account.id}/${kind === 'schedule' ? 'scheduling' : `${kind}/check`}`,
-            kind === 'schedule' ? 'PUT' : 'POST',
-            values ?? {},
-          );
+          const r = await api(`/accounts/${account.id}/${kind}/check`, 'POST', {});
           results.push({
             id: account.id,
-            browser: account.browserNumber ?? account.label,
+            browser: account.browserNumber ?? account.profileId,
             result:
               kind === 'proxy'
                 ? `Proxy available: ${r.ip}`
@@ -163,7 +152,7 @@ function Console() {
         } catch (e) {
           results.push({
             id: account.id,
-            browser: account.browserNumber ?? account.label,
+            browser: account.browserNumber ?? account.profileId,
             result: (e as Error).message,
           });
         }
@@ -182,28 +171,13 @@ function Console() {
     {
       title: 'Account',
       dataIndex: 'identity',
-      render: (value: string, account: { reason?: string }) =>
-        value || (
-          <span>
-            Unknown
-            {account.reason ? (
-              <Typography.Text type="secondary" style={{ display: 'block' }}>
-                {account.reason}
-              </Typography.Text>
-            ) : null}
-          </span>
-        ),
+      render: (value: string) => value || 'Unknown',
     },
     { title: 'Platform', dataIndex: 'platform' },
     {
       title: 'Proxy IP / address',
       render: (_: unknown, a: any) =>
         a.proxy ? `${a.proxy.host}:${a.proxy.port}` : 'Not configured',
-    },
-    {
-      title: 'Next schedulable',
-      dataIndex: 'nextAllowedAt',
-      render: (v: number) => (v > Date.now() ? time(v) : 'Schedulable when status is available'),
     },
     {
       title: 'Actions',
@@ -221,17 +195,6 @@ function Console() {
             }
           >
             Check proxy
-          </Button>
-          <Button
-            onClick={() =>
-              act('schedule-load', async () => {
-                const p = await api(`/accounts/${a.id}/scheduling`);
-                setSchedule(a);
-                scheduleForm.setFieldsValue(p);
-              })
-            }
-          >
-            Scheduling settings
           </Button>
         </Space>
       ),
@@ -340,7 +303,6 @@ function Console() {
                 pagination={false}
                 columns={[
                   { title: 'Domain', dataIndex: 'email' },
-                  { title: 'Description', dataIndex: 'note' },
                   {
                     title: '',
                     render: (_, row) => (
@@ -404,7 +366,7 @@ function Console() {
                   />
                   <Input.Search
                     allowClear
-                    placeholder="Search accounts, IDs, profiles, or notes"
+                    placeholder="Search accounts, IDs, or profiles"
                     value={search}
                     disabled={!!busy}
                     onChange={(e) => {
@@ -424,15 +386,7 @@ function Console() {
                 <Button disabled={!selected.length || !!busy} onClick={() => runBatch('session')}>
                   Check sessions in bulk
                 </Button>
-                <Button
-                  disabled={!selected.length || !!busy}
-                  onClick={() => {
-                    setSchedule({ batch: true });
-                    scheduleForm.resetFields();
-                  }}
-                >
-                  Set intervals in bulk
-                </Button>
+
                 <Button disabled={!selected.length || !!busy} onClick={() => setSelected([])}>
                   Clear selection
                 </Button>
@@ -453,43 +407,6 @@ function Console() {
           )}
         </Layout.Content>
       </Layout>
-      <Modal
-        title={
-          schedule?.batch
-            ? `Set intervals in bulk (${selected.length} accounts)`
-            : `${schedule?.browserNumber ?? ''} Scheduling settings`
-        }
-        open={!!schedule}
-        onCancel={() => setSchedule(null)}
-        confirmLoading={busy === 'schedule'}
-        onOk={() => scheduleForm.submit()}
-      >
-        <Form
-          form={scheduleForm}
-          layout="vertical"
-          onFinish={(v) => {
-            if (schedule?.batch) {
-              setSchedule(null);
-              void runBatch('schedule', v);
-              return;
-            }
-            void act('schedule', async () => {
-              await api(`/accounts/${schedule.id}/scheduling`, 'PUT', v);
-              setSchedule(null);
-              message.success('Scheduling settings saved');
-            });
-          }}
-        >
-          <Form.Item
-            name="minIntervalMs"
-            label="Request interval per account (ms)"
-            rules={[{ required: true, message: 'Enter a request interval' }]}
-            extra="0 means no additional wait; per-account concurrency is currently 1"
-          >
-            <InputNumber min={0} max={3600000} precision={0} style={{ width: '100%' }} />
-          </Form.Item>
-        </Form>
-      </Modal>
       <Modal
         title={`Bulk operation results ${batchProgress}`}
         open={batchResults !== null}
@@ -577,26 +494,7 @@ function Console() {
                 },
               ]}
             />
-            <Form
-              form={detailForm}
-              layout="vertical"
-              onFinish={(v) =>
-                act('edit', async () => {
-                  await api(`/accounts/${detail.id}`, 'PATCH', v);
-                  message.success('Account information updated');
-                })
-              }
-            >
-              <Form.Item name="label" label="Account alias" rules={[{ required: true }]}>
-                <Input maxLength={100} />
-              </Form.Item>
-              <Form.Item name="notes" label="Notes">
-                <Input.TextArea maxLength={1000} rows={3} />
-              </Form.Item>
-              <Button htmlType="submit" loading={busy === 'edit'}>
-                Save information
-              </Button>
-            </Form>
+
             <Space wrap>
               <Button
                 type="primary"

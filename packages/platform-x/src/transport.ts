@@ -1,13 +1,13 @@
-import { resolveMainScript, parseQueryRegistry } from "./registry.ts";
-import { XTransaction, resolveTransactionScript } from "./transaction.ts";
-import { createHash } from "node:crypto";
-import { operationUrl } from "./native.ts";
-import { Impit } from "impit";
-import { XCookies } from "./cookies.ts";
-import { DatalomError } from "@datalom/shared/runtime/contracts";
-import type { Trace } from "@datalom/shared/runtime/diagnostics";
-import { errorRecord } from "@datalom/shared/runtime/diagnostics";
-import type { XSession } from "./session.ts";
+import { resolveMainScript, parseQueryRegistry } from './registry.ts';
+import { XTransaction, resolveTransactionScript } from './transaction.ts';
+import { createHash } from 'node:crypto';
+import { operationUrl } from './native.ts';
+import { Impit } from 'impit';
+import { XCookies } from './cookies.ts';
+import { DatalomError } from '@datalom/shared/runtime/contracts';
+import type { Trace } from '@datalom/shared/runtime/diagnostics';
+import { errorRecord } from '@datalom/shared/runtime/diagnostics';
+import type { XSession } from './session.ts';
 
 export class XTransport {
   private jar;
@@ -20,11 +20,11 @@ export class XTransport {
     private trace: Trace,
   ) {
     const u = new URL(proxyUrl);
-    if (u.protocol !== "http:" || u.hostname !== "127.0.0.1")
-      throw new DatalomError("PROXY_UNAVAILABLE", "X 请求必须经过本地代理链");
+    if (u.protocol !== 'http:' || u.hostname !== '127.0.0.1')
+      throw new DatalomError('PROXY_UNAVAILABLE', 'X 请求必须经过本地代理链');
     this.jar = new XCookies(session, trace);
     this.client = new Impit({
-      browser: "chrome151",
+      browser: 'chrome151',
       proxyUrl,
       http3: false,
       followRedirects: false,
@@ -37,8 +37,8 @@ export class XTransport {
     const u = new URL(url);
     if (
       !(
-        url === "https://x.com/home" ||
-        (u.origin === "https://abs.twimg.com" &&
+        url === 'https://x.com/home' ||
+        (u.origin === 'https://abs.twimg.com' &&
           /^\/responsive-web\/client-web\/(?:ondemand\.s|main)\.[a-zA-Z0-9_-]+\.js$/.test(
             u.pathname,
           ))
@@ -46,33 +46,31 @@ export class XTransport {
       u.search ||
       u.hash
     )
-      throw new DatalomError("INVALID_INPUT", "非法 transaction 素材地址");
-    this.trace("x-transaction-source", "started", { url });
+      throw new DatalomError('INVALID_INPUT', '非法 transaction 素材地址');
+    await this.trace('x-transaction-source', 'started', { url });
     const headers = {
-      "user-agent": this.session.observed.userAgent,
-      accept: u.hostname === "x.com" ? "text/html" : "*/*",
+      'user-agent': this.session.observed.userAgent,
+      accept: u.hostname === 'x.com' ? 'text/html' : '*/*',
     };
-    this.trace("x-transaction-source-request", "started", {
+    await this.trace('x-transaction-source-request', 'started', {
       url,
-      method: "GET",
+      method: 'GET',
       headers,
       browserUsed: false,
     });
     let r;
     try {
-      r = await this.client.fetch(url, { headers, signal, redirect: "manual" });
+      r = await this.client.fetch(url, { headers, signal, redirect: 'manual' });
     } catch (error) {
-      this.trace("x-transaction-source", "failed", {
+      await this.trace('x-transaction-source', 'failed', {
         url,
         error: errorRecord(error),
       });
-      throw new DatalomError(
-        signal.aborted ? "CANCELLED" : "NETWORK",
-        "X 素材请求失败",
-        { cause: error },
-      );
+      throw new DatalomError(signal.aborted ? 'CANCELLED' : 'NETWORK', 'X 素材请求失败', {
+        cause: error,
+      });
     }
-    this.trace("x-transaction-source-headers", "received", {
+    await this.trace('x-transaction-source-headers', 'received', {
       url,
       status: r.status,
       headers: Object.fromEntries(r.headers),
@@ -88,58 +86,54 @@ export class XTransport {
           size += next.value.length;
           if (size > 6 * 1024 * 1024) {
             await reader.cancel();
-            throw new DatalomError("SCHEMA_CHANGED", "transaction 素材过大");
+            throw new DatalomError('SCHEMA_CHANGED', 'transaction 素材过大');
           }
           chunks.push(next.value);
         }
     } catch (error) {
-      this.trace("x-transaction-source-body", "failed", {
+      await this.trace('x-transaction-source-body', 'failed', {
         url,
         error: errorRecord(error),
         bytes: size,
-        partial: Buffer.concat(chunks).toString("utf8"),
+        partial: Buffer.concat(chunks).toString('utf8'),
       });
       throw error;
     } finally {
       reader?.releaseLock();
     }
-    const body = Buffer.concat(chunks).toString("utf8");
-    this.trace("x-transaction-source", "received", {
+    const body = Buffer.concat(chunks).toString('utf8');
+    await this.trace('x-transaction-source', 'received', {
       url,
       status: r.status,
       headers: Object.fromEntries(r.headers),
       body,
       bytes: size,
-      sha256: createHash("sha256").update(body).digest("hex"),
+      sha256: createHash('sha256').update(body).digest('hex'),
     });
     if (r.status !== 200)
-      throw new DatalomError(
-        "RESEARCH_REQUIRED",
-        `transaction 素材 HTTP ${r.status}`,
-      );
+      throw new DatalomError('RESEARCH_REQUIRED', `transaction 素材 HTTP ${r.status}`);
     return body;
   }
   private async initialize(signal: AbortSignal) {
     if (this.transaction) return;
-    const html = await this.source("https://x.com/home", signal);
+    const html = await this.source('https://x.com/home', signal);
     const script = await this.source(resolveTransactionScript(html), signal);
     const mainUrl = resolveMainScript(html);
     const main = await this.source(mainUrl, signal);
     this.queryIds = parseQueryRegistry(main);
     this.transaction = XTransaction.fromSources(html, script);
-    this.trace("x-query-registry", "parsed", {
+    await this.trace('x-query-registry', 'parsed', {
       mainUrl,
       count: this.queryIds.size,
     });
   }
-  private transactionId(path: string) {
-    if (!this.transaction)
-      throw new DatalomError("RESEARCH_REQUIRED", "transaction 未初始化");
-    const value = this.transaction.generate("GET", path);
-    this.trace("x-transaction", "generated", {
-      method: "GET",
+  private async transactionId(path: string) {
+    if (!this.transaction) throw new DatalomError('RESEARCH_REQUIRED', 'transaction 未初始化');
+    const value = this.transaction.generate('GET', path);
+    await this.trace('x-transaction', 'generated', {
+      method: 'GET',
       path,
-      idSha256: createHash("sha256").update(value).digest("hex"),
+      idSha256: createHash('sha256').update(value).digest('hex'),
       browserUsed: false,
     });
     return value;
@@ -149,38 +143,35 @@ export class XTransport {
       url: string;
       headers: Record<string, string>;
       body?: string;
-      method: "GET" | "POST";
+      method: 'GET' | 'POST';
     },
     signal: AbortSignal,
   ) {
     operationUrl(request.url);
-    if (request.method !== "GET")
-      throw new DatalomError("INVALID_INPUT", "X 执行器仅允许 GET");
+    if (request.method !== 'GET') throw new DatalomError('INVALID_INPUT', 'X 执行器仅允许 GET');
     // Load the current site's versioned operation registry before signing.
     await this.initialize(signal);
     const resolved = operationUrl(request.url);
     const currentId = this.queryIds.get(resolved.name);
-    if (!currentId)
-      throw new DatalomError("RESEARCH_REQUIRED", "主脚本缺少当前操作 ID");
-    resolved.url.pathname = "/i/api/graphql/" + currentId + "/" + resolved.name;
-    this.trace("x-query-registry", "resolved", {
+    if (!currentId) throw new DatalomError('RESEARCH_REQUIRED', '主脚本缺少当前操作 ID');
+    resolved.url.pathname = '/i/api/graphql/' + currentId + '/' + resolved.name;
+    await this.trace('x-query-registry', 'resolved', {
       operation: resolved.name,
       capturedId: resolved.queryId,
       currentId,
       changed: currentId !== resolved.queryId,
     });
     request = { ...request, url: resolved.url.toString() };
-    const transactionId = this.transactionId(resolved.url.pathname);
+    const transactionId = await this.transactionId(resolved.url.pathname);
     const headers = {
       ...request.headers,
-      "x-client-transaction-id": transactionId,
-      "user-agent": this.session.observed.userAgent,
+      'x-client-transaction-id': transactionId,
+      'user-agent': this.session.observed.userAgent,
       cookie: await this.jar.getCookieString(request.url),
-      "x-csrf-token":
-        (await this.jar.getCookies(request.url)).find((c) => c.key === "ct0")
-          ?.value ?? "",
+      'x-csrf-token':
+        (await this.jar.getCookies(request.url)).find((c) => c.key === 'ct0')?.value ?? '',
     };
-    this.trace("x-http", "started", {
+    await this.trace('x-http', 'started', {
       ...request,
       headers,
       method: request.method,
@@ -193,18 +184,16 @@ export class XTransport {
         headers,
         body: request.body,
         signal,
-        redirect: "manual",
+        redirect: 'manual',
       });
     } catch (error) {
-      this.trace("x-http", "failed", { error: errorRecord(error) });
-      throw new DatalomError(
-        signal.aborted ? "CANCELLED" : "NETWORK",
-        "X 请求失败",
-        { cause: error },
-      );
+      await this.trace('x-http', 'failed', { error: errorRecord(error) });
+      throw new DatalomError(signal.aborted ? 'CANCELLED' : 'NETWORK', 'X 请求失败', {
+        cause: error,
+      });
     }
     const h = new Headers(response.headers);
-    this.trace("x-http-headers", "received", {
+    await this.trace('x-http-headers', 'received', {
       status: response.status,
       headers: Object.fromEntries(h),
     });
@@ -219,22 +208,22 @@ export class XTransport {
           bytes += r.value.length;
           if (bytes > 12 * 1024 * 1024) {
             await reader.cancel();
-            throw new DatalomError("SCHEMA_CHANGED", "响应超过 12 MB");
+            throw new DatalomError('SCHEMA_CHANGED', '响应超过 12 MB');
           }
           chunks.push(r.value);
         }
     } catch (error) {
-      this.trace("x-http-body", "failed", {
+      await this.trace('x-http-body', 'failed', {
         error: errorRecord(error),
         bytes,
-        partial: Buffer.concat(chunks).toString("utf8"),
+        partial: Buffer.concat(chunks).toString('utf8'),
       });
       throw error;
     } finally {
       reader?.releaseLock();
     }
-    const body = Buffer.concat(chunks).toString("utf8");
-    this.trace("x-http", "received", {
+    const body = Buffer.concat(chunks).toString('utf8');
+    await this.trace('x-http', 'received', {
       status: response.status,
       headers: Object.fromEntries(h),
       setCookies: h.getSetCookie(),

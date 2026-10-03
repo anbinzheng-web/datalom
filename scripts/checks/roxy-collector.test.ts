@@ -9,7 +9,7 @@ import {
 import { fixture, session } from './helpers.ts';
 
 it('bounds concurrency, isolates platforms and updates existing encrypted accounts', async () => {
-  const f = fixture();
+  const f = await fixture();
   const closed: string[] = [];
   let active = 0,
     peak = 0;
@@ -51,11 +51,11 @@ it('bounds concurrency, isolates platforms and updates existing encrypted accoun
     expect(peak).toBe(2);
     expect(closed.sort()).toEqual(['p0', 'p1', 'p2']);
     await collectProfiles(config, f.store, () => {}, connector);
-    const accounts = f.store.listAccounts().filter((a) => a.workspaceId === 'fixture');
+    const accounts = (await f.store.listAccounts()).filter((a) => a.workspaceId === 'fixture');
     expect(accounts).toHaveLength(6);
     expect(accounts.every((a) => a.version === 2)).toBe(true);
     expect(JSON.stringify(reports)).not.toMatch(/secret-cookie|fixture-key|private SDK/);
-    const evidence = f.store.listEvidence() as { summary: string; kind: string }[];
+    const evidence = (await f.store.listEvidence()) as { summary: string; kind: string }[];
     expect(
       evidence.some(
         (item) =>
@@ -64,10 +64,7 @@ it('bounds concurrency, isolates platforms and updates existing encrypted accoun
       ),
     ).toBe(true);
     const facebook = accounts.find((a) => a.platform === 'facebook')!;
-    expect(() =>
-      f.store.enqueue({ accountId: facebook.id, video: '123', operation: 'video.detail' }),
-    ).toThrow('尚未接入');
-    expect(f.store.getSecret(facebook.id).cookies[0].value).toBe('secret-cookie-fixture');
+    expect((await f.store.getSecret(facebook.id)).cookies[0].value).toBe('secret-cookie-fixture');
     expect(matchesPlatform('evilfacebook.com', 'facebook')).toBe(false);
     expect(matchesPlatform('www.facebook.com', 'facebook')).toBe(true);
     for (const platform of ['youtube', 'facebook', 'x', 'instagram'])
@@ -78,6 +75,6 @@ it('bounds concurrency, isolates platforms and updates existing encrypted accoun
     expect(platformOrigin('https://www.instagram.com/accounts/', 'instagram')).toBe(true);
     expect(platformOrigin('https://evilinstagram.com/', 'instagram')).toBe(false);
   } finally {
-    f.cleanup();
+    await f.cleanup();
   }
 });

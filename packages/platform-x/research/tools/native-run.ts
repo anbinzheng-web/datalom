@@ -1,37 +1,32 @@
-import { artifactPath } from "@datalom/shared/runtime/paths";
-import { randomUUID } from "node:crypto";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { setTimeout as delay } from "node:timers/promises";
-import { openStore } from "@datalom/shared/storage/runtime";
-import { DatalomError } from "@datalom/shared/runtime/contracts";
-import { errorRecord, type Trace } from "@datalom/shared/runtime/diagnostics";
-import { startRoute } from "@datalom/network-node/route";
-import { XSessions } from "@datalom/platform-x/session";
+import { artifactPath } from '@datalom/shared/runtime/paths';
+import { randomUUID } from 'node:crypto';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { setTimeout as delay } from 'node:timers/promises';
+import { openStore } from '@datalom/shared/storage/runtime';
+import { DatalomError } from '@datalom/shared/runtime/contracts';
+import { errorRecord, type Trace } from '@datalom/shared/runtime/diagnostics';
+import { startRoute } from '@datalom/network-node/route';
+import { XSessions } from '@datalom/platform-x/session';
 import {
   buildRequest,
   validateResult,
   operations,
   type XOperation,
   type Capture,
-} from "@datalom/platform-x/native";
-import { XTransport } from "@datalom/platform-x/transport";
+} from '@datalom/platform-x/native';
+import { XTransport } from '@datalom/platform-x/transport';
 
-const [
-  profileId,
-  operationInput,
-  evidenceId,
-  updatesInput = "{}",
-  pagesInput = "1",
-] = process.argv.slice(2);
-const store = openStore(),
+const [profileId, operationInput, evidenceId, updatesInput = '{}', pagesInput = '1'] =
+  process.argv.slice(2);
+const store = await openStore(),
   sessions = new XSessions(store),
   requestId = randomUUID();
 const controller = new AbortController();
 const cancel = () => controller.abort();
-process.once("SIGINT", cancel);
-process.once("SIGTERM", cancel);
+process.once('SIGINT', cancel);
+process.once('SIGTERM', cancel);
 const timeout = setTimeout(cancel, 300000);
-let held: ReturnType<XSessions["acquire"]> | undefined;
+let held: Awaited<ReturnType<XSessions['acquire']>> | undefined;
 let route: Awaited<ReturnType<typeof startRoute>> | undefined;
 let pageNumber = 0;
 const report: Record<string, any> = {
@@ -41,12 +36,12 @@ const report: Record<string, any> = {
   sourceEvidenceId: evidenceId,
   startedAt: new Date().toISOString(),
   browserUsed: false,
-  adapterVersion: "x-native-0.2.1",
-  status: "running",
+  adapterVersion: 'x-native-0.2.1',
+  status: 'running',
   pages: [],
 };
-const trace: Trace = (stage, outcome, payload, code) => {
-  store.diagnostics.event(
+const trace: Trace = async (stage, outcome, payload, code) => {
+  await store.diagnostics.event(
     {
       requestId,
       accountId: profileId,
@@ -61,13 +56,10 @@ const trace: Trace = (stage, outcome, payload, code) => {
   );
 };
 try {
-  if (
-    !/^[a-f0-9]{32}$/.test(profileId ?? "") ||
-    !Object.hasOwn(operations, operationInput ?? "")
-  )
+  if (!/^[a-f0-9]{32}$/.test(profileId ?? '') || !Object.hasOwn(operations, operationInput ?? ''))
     throw new DatalomError(
-      "INVALID_INPUT",
-      "Usage: native-run <profileId> <operation> <captureEvidenceId> [updates JSON] [pages 1..3]",
+      'INVALID_INPUT',
+      'Usage: native-run <profileId> <operation> <captureEvidenceId> [updates JSON] [pages 1..3]',
     );
   const operation = operationInput as XOperation;
   const pages = Number(pagesInput),
@@ -77,60 +69,44 @@ try {
     pages < 1 ||
     pages > 3 ||
     !updates ||
-    typeof updates !== "object" ||
+    typeof updates !== 'object' ||
     Array.isArray(updates)
   )
-    throw new DatalomError("INVALID_INPUT", "实验仅允许 1–3 页及对象变量");
+    throw new DatalomError('INVALID_INPUT', '实验仅允许 1–3 页及对象变量');
   if (
     pages > 1 &&
     ![
-      "profile.posts",
-      "profile.replies",
-      "profile.reposts",
-      "profile.media",
-      "post.conversation",
-      "search.timeline",
-      "profile.followers",
-      "profile.following",
+      'profile.posts',
+      'profile.replies',
+      'profile.reposts',
+      'profile.media',
+      'post.conversation',
+      'search.timeline',
+      'profile.followers',
+      'profile.following',
     ].includes(operation)
   )
-    throw new DatalomError("INVALID_INPUT", "该操作尚未实现分页");
-  const meta = store.sql
-    .prepare("SELECT stage,outcome FROM diagnostic_events WHERE id=?")
-    .get(evidenceId) as any;
-  if (meta?.stage !== "x-http" || meta.outcome !== "received")
-    throw new DatalomError("INVALID_INPUT", "需要成功保存的浏览器采集证据");
-  const capture = store.diagnostics.rawEvent(evidenceId) as Capture;
+    throw new DatalomError('INVALID_INPUT', '该操作尚未实现分页');
+  const meta = (await store.diagnostics.find(row => row.id === evidenceId, 1, false).then(rows => rows[0])) as any;
+  if (meta?.stage !== 'x-http' || meta.outcome !== 'received')
+    throw new DatalomError('INVALID_INPUT', '需要成功保存的浏览器采集证据');
+  const capture = (await store.diagnostics.rawEvent(evidenceId)) as Capture;
   if (capture.profileId !== profileId)
-    throw new DatalomError("INVALID_INPUT", "采集样本不属于当前账号");
+    throw new DatalomError('INVALID_INPUT', '采集样本不属于当前账号');
   const continuationId = updates._continuationEvidenceId;
   if (continuationId !== undefined) {
-    const metadata = store.sql
-      .prepare(
-        "SELECT stage,accountId,outcome FROM diagnostic_events WHERE id=?",
-      )
-      .get(continuationId) as any;
+    const metadata = (await store.diagnostics.find(row => row.id === continuationId, 1, false).then(rows => rows[0])) as any;
     if (
-      metadata?.stage !== "x-result" ||
-      metadata.outcome !== "validated" ||
+      metadata?.stage !== 'x-result' ||
+      metadata.outcome !== 'validated' ||
       metadata.accountId !== profileId
     )
-      throw new DatalomError("INVALID_INPUT", "续页证据不属于当前账号结果");
-    const previous = store.diagnostics.rawEvent(continuationId) as any;
-    if (previous.operation !== operation)
-      throw new DatalomError("INVALID_INPUT", "续页操作不匹配");
-    for (const key of [
-      "userId",
-      "rawQuery",
-      "product",
-      "focalTweetId",
-      "rankingMode",
-    ])
-      if (
-        Object.hasOwn(updates, key) &&
-        updates[key] !== previous.variables[key]
-      )
-        throw new DatalomError("INVALID_INPUT", "续页不能更换业务目标");
+      throw new DatalomError('INVALID_INPUT', '续页证据不属于当前账号结果');
+    const previous = (await store.diagnostics.rawEvent(continuationId)) as any;
+    if (previous.operation !== operation) throw new DatalomError('INVALID_INPUT', '续页操作不匹配');
+    for (const key of ['userId', 'rawQuery', 'product', 'focalTweetId', 'rankingMode'])
+      if (Object.hasOwn(updates, key) && updates[key] !== previous.variables[key])
+        throw new DatalomError('INVALID_INPUT', '续页不能更换业务目标');
     const index = updates._moduleIndex;
     const cursor =
       index === undefined
@@ -138,32 +114,25 @@ try {
         : Number.isInteger(index) && index >= 0
           ? previous.page?.moduleCursors?.[index]?.cursor
           : undefined;
-    if (typeof cursor !== "string" || !cursor)
-      throw new DatalomError("INVALID_INPUT", "指定结果无有效续页游标");
-    for (const key of [
-      "userId",
-      "rawQuery",
-      "product",
-      "focalTweetId",
-      "rankingMode",
-    ])
-      if (previous.variables[key] !== undefined)
-        updates[key] = previous.variables[key];
+    if (typeof cursor !== 'string' || !cursor)
+      throw new DatalomError('INVALID_INPUT', '指定结果无有效续页游标');
+    for (const key of ['userId', 'rawQuery', 'product', 'focalTweetId', 'rankingMode'])
+      if (previous.variables[key] !== undefined) updates[key] = previous.variables[key];
     updates.cursor = cursor;
     delete updates._continuationEvidenceId;
     delete updates._moduleIndex;
   }
   const sample = buildRequest(operation, capture, {}, 1);
   validateResult(operation, sample.variables, capture.status, capture.body);
-  held = sessions.acquire(profileId);
+  held = await sessions.acquire(profileId);
   if (!held.session.route?.verifiedAt)
-    throw new DatalomError("PROXY_UNAVAILABLE", "账号线路尚未验证");
-  trace("x-session", "acquired", {
+    throw new DatalomError('PROXY_UNAVAILABLE', '账号线路尚未验证');
+  await trace('x-session', 'acquired', {
     profileId,
     capturedAt: held.session.capturedAt,
     sourceEvidenceId: evidenceId,
     browserVersion: held.session.observed.browserVersion,
-    transportPreset: "chrome151",
+    transportPreset: 'chrome151',
     session: held.session,
   });
   route = await startRoute(held.session.route, store.dir, trace);
@@ -171,56 +140,45 @@ try {
   const ids = new Set<string>(),
     cursors = new Set<string>();
   for (pageNumber = 1; pageNumber <= pages; pageNumber++) {
-    if (pageNumber > 1)
-      await delay(3000, undefined, { signal: controller.signal });
+    if (pageNumber > 1) await delay(3000, undefined, { signal: controller.signal });
     controller.signal.throwIfAborted();
-    if (!sessions.renew(profileId, held.lease))
-      throw new DatalomError("CONFLICT", "会话租约已失效");
-    const request = buildRequest(
-      operation,
-      capture,
-      updates,
-      ++held.session.requestCounter,
-    );
+    if (!(await sessions.renew(profileId, held.lease)))
+      throw new DatalomError('CONFLICT', '会话租约已失效');
+    const request = buildRequest(operation, capture, updates, ++held.session.requestCounter);
     const selfId = decodeURIComponent(
-      held.session.cookies.find((c) => c.name === "twid")?.value ?? "",
+      held.session.cookies.find((c) => c.name === 'twid')?.value ?? '',
     )
-      .replace(/^u=/, "")
-      .replaceAll('"', "");
+      .replace(/^u=/, '')
+      .replaceAll('"', '');
     if (
       request.variables.userId === selfId ||
       (held.session.observed.selfScreenName &&
-        String(request.variables.screen_name ?? "").toLowerCase() ===
+        String(request.variables.screen_name ?? '').toLowerCase() ===
           String(held.session.observed.selfScreenName).toLowerCase())
     )
-      throw new DatalomError("INVALID_INPUT", "不采集本账号资料");
+      throw new DatalomError('INVALID_INPUT', '不采集本账号资料');
     // Persist before I/O so a failed request never reuses its sequence number.
-    sessions.save(held.session, held.version, held.lease);
+    await sessions.save(held.session, held.version, held.lease);
     const started = Date.now();
     const response = await transport.request(
       request,
       AbortSignal.any([controller.signal, AbortSignal.timeout(30000)]),
     );
-    sessions.save(held.session, held.version, held.lease);
-    const result = validateResult(
-      operation,
-      request.variables,
-      response.status,
-      response.body,
-    );
+    await sessions.save(held.session, held.version, held.lease);
+    const result = validateResult(operation, request.variables, response.status, response.body);
     const owned = (item: any): boolean =>
-      item.kind === "user"
+      item.kind === 'user'
         ? item.id === selfId
-        : item.kind === "tweet"
+        : item.kind === 'tweet'
           ? item.author?.id === selfId ||
             (!!item.quote && owned(item.quote)) ||
             (!!item.repost && owned(item.repost))
           : false;
     if (
-      (operation === "profile.detail" || operation === "post.detail") &&
+      (operation === 'profile.detail' || operation === 'post.detail') &&
       result.raw.items.some(owned)
     )
-      throw new DatalomError("INVALID_INPUT", "结果属于本账号，已停止");
+      throw new DatalomError('INVALID_INPUT', '结果属于本账号，已停止');
     const publicItems = result.raw.items.filter((item) => !owned(item));
     const excludedSelf = result.raw.items.length - publicItems.length;
     result.raw.items = publicItems;
@@ -228,19 +186,19 @@ try {
     let duplicates = result.page?.duplicates ?? 0;
     for (const item of result.page?.items ??
       (Array.isArray(result.raw.items) ? result.raw.items : [])) {
-      const itemKey = item.kind + ":" + item.id;
+      const itemKey = item.kind + ':' + item.id;
       if (ids.has(itemKey)) duplicates++;
       ids.add(itemKey);
     }
-    const resultEvidenceId = store.diagnostics.event(
+    const resultEvidenceId = await store.diagnostics.event(
       {
         requestId,
         accountId: profileId,
         sessionVersion: held.version,
         page: pageNumber,
       },
-      "x-result",
-      "validated",
+      'x-result',
+      'validated',
       {
         operation,
         variables: request.variables,
@@ -266,41 +224,38 @@ try {
       evidenceId: resultEvidenceId,
     });
     if (!result.page?.hasMore || pageNumber === pages) break;
-    const cursorKey = "cursor";
-    if (
-      result.page.cursor === request.variables[cursorKey] ||
-      cursors.has(result.page.cursor!)
-    )
-      throw new DatalomError("SCHEMA_CHANGED", "分页游标重复，已停止");
+    const cursorKey = 'cursor';
+    if (result.page.cursor === request.variables[cursorKey] || cursors.has(result.page.cursor!))
+      throw new DatalomError('SCHEMA_CHANGED', '分页游标重复，已停止');
     cursors.add(result.page.cursor!);
     updates[cursorKey] = result.page.cursor;
   }
-  report.status = "succeeded";
+  report.status = 'succeeded';
   report.uniqueItems = ids.size;
-  trace("x-run", "succeeded", report);
+  await trace('x-run', 'succeeded', report);
 } catch (error) {
-  report.status = "failed";
+  report.status = 'failed';
   report.code =
     error instanceof DatalomError
       ? error.code
       : controller.signal.aborted
-        ? "CANCELLED"
-        : "INTERNAL";
-  report.failureEvidenceId = store.diagnostics.event(
+        ? 'CANCELLED'
+        : 'INTERNAL';
+  report.failureEvidenceId = await store.diagnostics.event(
     {
       requestId,
       accountId: profileId,
       sessionVersion: held?.version,
       page: pageNumber,
     },
-    "x-run",
-    "failed",
+    'x-run',
+    'failed',
     {
       error: errorRecord(error),
       report,
       causeConfirmed: false,
       nextExperiment:
-        "对照 sourceEvidenceId 的浏览器成功样本和本次 HTTP 原始响应；先确定失败阶段，再做单变量实验；不自动重试。",
+        '对照 sourceEvidenceId 的浏览器成功样本和本次 HTTP 原始响应；先确定失败阶段，再做单变量实验；不自动重试。',
     },
     report.code,
   );
@@ -311,22 +266,17 @@ try {
     await route?.stop();
   } finally {
     if (held)
-      sessions.release(
+      await sessions.release(
         profileId,
         held.lease,
-        ["RATE_LIMIT", "CHALLENGE", "LOGIN_REQUIRED"].includes(report.code)
-          ? 300000
-          : 3000,
+        ['RATE_LIMIT', 'CHALLENGE', 'LOGIN_REQUIRED'].includes(report.code) ? 300000 : 3000,
       );
     report.finishedAt = new Date().toISOString();
-    mkdirSync(artifactPath("x"), { recursive: true });
-    writeFileSync(
-      artifactPath(`x/independent-${requestId}.json`),
-      JSON.stringify(report, null, 2),
-    );
+    mkdirSync(artifactPath('x'), { recursive: true });
+    writeFileSync(artifactPath(`x/independent-${requestId}.json`), JSON.stringify(report, null, 2));
     console.log(JSON.stringify(report));
-    store.close();
-    process.off("SIGINT", cancel);
-    process.off("SIGTERM", cancel);
+    await store.close();
+    process.off('SIGINT', cancel);
+    process.off('SIGTERM', cancel);
   }
 }

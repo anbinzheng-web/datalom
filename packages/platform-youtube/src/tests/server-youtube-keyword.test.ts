@@ -62,7 +62,7 @@ test('YouTube reconnects the same proxy after SOCKS EOF, preserves errors, and b
       password: 'PROXY_CANARY',
     },
   };
-  const run = () =>
+  const run = async () =>
     collectServerYouTubeKeyword({
       input: {
         keyword: 'fixture',

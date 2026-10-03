@@ -1,33 +1,33 @@
-import { cookieJar } from "@datalom/network-node/cookies";
-import { signInProcess } from "@datalom/platform-tiktok/signer-process";
-import { openStore } from "@datalom/shared/storage/runtime";
-import { openTransport } from "@datalom/network-node/session-transport";
-const store = openStore(),
-  a = store.listAccounts().find((a) => a.profileId === process.argv[2]);
-if (!a) throw new Error("Unknown profile");
-const lease = store.lease(a.id, true);
-if (!lease) throw new Error("Account busy");
-const s = store.getSecret(a.id),
-  template = s.research?.requestTemplates?.["video.comments"];
-if (!template) throw new Error("Capture comments first");
+import { cookieJar } from '@datalom/network-node/cookies';
+import { signInProcess } from '@datalom/platform-tiktok/signer-process';
+import { openStore } from '@datalom/shared/storage/runtime';
+import { openTransport } from '@datalom/network-node/session-transport';
+const store = await openStore(),
+  a = (await store.listAccounts()).find((a) => a.profileId === process.argv[2]);
+if (!a) throw new Error('Unknown profile');
+const lease = await store.lease(a.id, true);
+if (!lease) throw new Error('Account busy');
+const s = await store.getSecret(a.id),
+  template = s.research?.requestTemplates?.['video.comments'];
+if (!template) throw new Error('Capture comments first');
 const c = await openTransport(s, store.dir);
-const mode = process.argv[3] ?? "unsigned";
+const mode = process.argv[3] ?? 'unsigned';
 try {
   const url = new URL(template.url);
-  if (mode.startsWith("unsigned"))
-    for (const name of ["X-Bogus", "X-Gnarly", "X-Dynosaur", "_signature"])
+  if (mode.startsWith('unsigned'))
+    for (const name of ['X-Bogus', 'X-Gnarly', 'X-Dynosaur', '_signature'])
       url.searchParams.delete(name);
-  if (process.argv[4]) url.searchParams.set("cursor", process.argv[4]);
-  const signed = mode.startsWith("fresh")
+  if (process.argv[4]) url.searchParams.set('cursor', process.argv[4]);
+  const signed = mode.startsWith('fresh')
     ? await signInProcess(
         {
           templateUrl: template.url,
           userAgent: s.observed.userAgent,
-          updates: { cursor: process.argv[4] ?? "0" },
-          msToken: mode.includes("token")
+          updates: { cursor: process.argv[4] ?? '0' },
+          msToken: mode.includes('token')
             ? cookieJar(s)
                 .getCookiesSync(template.url)
-                .find((c) => c.key === "msToken")?.value
+                .find((c) => c.key === 'msToken')?.value
             : undefined,
         },
         AbortSignal.timeout(5000),
@@ -37,26 +37,26 @@ try {
   const r = await c.transport.request(signed, {
     signal: AbortSignal.timeout(25000),
     headers: {
-      ...(mode.endsWith("headers")
+      ...(mode.endsWith('headers')
         ? Object.fromEntries(
             Object.entries(template.headers).filter(([k]) =>
               [
-                "accept",
-                "accept-language",
-                "priority",
-                "sec-ch-ua",
-                "sec-ch-ua-mobile",
-                "sec-ch-ua-platform",
-                "sec-fetch-dest",
-                "sec-fetch-mode",
-                "sec-fetch-site",
-                "user-agent",
+                'accept',
+                'accept-language',
+                'priority',
+                'sec-ch-ua',
+                'sec-ch-ua-mobile',
+                'sec-ch-ua-platform',
+                'sec-fetch-dest',
+                'sec-fetch-mode',
+                'sec-fetch-site',
+                'user-agent',
               ].includes(k),
             ),
           )
         : {}),
-      referer: template.headers.referer ?? "https://www.tiktok.com/",
-      accept: "*/*",
+      referer: template.headers.referer ?? 'https://www.tiktok.com/',
+      accept: '*/*',
     },
   });
   let j: any;
@@ -74,17 +74,16 @@ try {
     title: r.body.match(/<title>(.*?)<\/title>/)?.[1],
     duration: Date.now() - t,
   };
-  store.evidence(
-    a.id,
-    "replay",
-    `${mode} · HTTP ${r.status} · ${r.body.length} bytes`,
-    { url: signed, result, response: r.body },
-  );
+  await store.evidence(a.id, 'replay', `${mode} · HTTP ${r.status} · ${r.body.length} bytes`, {
+    url: signed,
+    result,
+    response: r.body,
+  });
   c.save();
-  store.saveSecret(a.id, a.version, s, lease);
+  await store.saveSecret(a.id, a.version, s, lease);
   console.log(JSON.stringify(result));
 } finally {
   await c.close();
-  store.release(a.id, lease);
-  store.close();
+  await store.release(a.id, lease);
+  await store.close();
 }

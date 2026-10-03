@@ -1,8 +1,8 @@
-import { chromium } from "playwright";
-import { openStore } from "@datalom/shared/storage/runtime";
-import { profileConnection } from "./connection.ts";
-import { errorRecord } from "@datalom/shared/runtime/diagnostics";
-const s = openStore();
+import { chromium } from 'playwright';
+import { openStore } from '@datalom/shared/storage/runtime';
+import { profileConnection } from './connection.ts';
+import { errorRecord } from '@datalom/shared/runtime/diagnostics';
+const s = await openStore();
 let b;
 try {
   const { endpoint } = await profileConnection(s, process.argv[2]);
@@ -10,20 +10,16 @@ try {
   const p = b
     .contexts()[0]
     .pages()
-    .find((p) => p.url().startsWith("https://x.com/search?"));
-  if (!p) throw Error("No public search tab");
+    .find((p) => p.url().startsWith('https://x.com/search?'));
+  if (!p) throw Error('No public search tab');
   const c = await p.context().newCDPSession(p);
   try {
-    await c.send("Network.enable");
-    await c.send("Network.setCacheDisabled", { cacheDisabled: true });
-    await p
-      .reload({ waitUntil: "networkidle", timeout: 25000 })
-      .catch(() => {});
+    await c.send('Network.enable');
+    await c.send('Network.setCacheDisabled', { cacheDisabled: true });
+    await p.reload({ waitUntil: 'networkidle', timeout: 25000 }).catch(() => {});
     console.log({
       scripts: await p.evaluate(() =>
-        [...document.scripts]
-          .map((s) => s.src)
-          .filter((x) => x.includes("/main.")),
+        [...document.scripts].map((s) => s.src).filter((x) => x.includes('/main.')),
       ),
     });
   } finally {
@@ -32,12 +28,12 @@ try {
 } catch (error) {
   console.log({
     failed: true,
-    evidenceId: s.diagnostics.event({}, "x-cache-refresh", "failed", {
+    evidenceId: await s.diagnostics.event({}, 'x-cache-refresh', 'failed', {
       error: errorRecord(error),
     }),
   });
   process.exitCode = 1;
 } finally {
   await b?.close();
-  s.close();
+  await s.close();
 }

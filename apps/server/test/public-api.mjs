@@ -1,3 +1,6 @@
+process.env.DATALOM_ACCOUNT_INTERVAL_MS = '0';
+process.env.DATALOM_MANAGEMENT_TOKEN = 'test-management-token-only-32-characters';
+import { testStore } from '@datalom/shared/storage/testing';
 import 'reflect-metadata';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -12,9 +15,11 @@ import { AppModule } from '../dist/app.module.js';
 import { PublicApiService, sanitize } from '../dist/public-api/public-api.service.js';
 import { DatalomError } from '@datalom/shared/runtime/contracts';
 import { EventEmitter } from 'node:events';
+import { publicSpecification } from '../dist/openapi/public.js';
 import { authToken } from '../dist/app.js';
 const dir = mkdtempSync(join(tmpdir(), 'datalom-public-'));
-const store = new Store(dir, new Vault(randomBytes(32)));
+const isolated = await testStore(dir);
+const store = isolated.store;
 const oldKey = process.env.DATALOM_PUBLIC_API_KEY,
   oldRpm = process.env.DATALOM_PUBLIC_API_RPM;
 process.env.DATALOM_PUBLIC_API_KEY = randomBytes(32).toString('hex');
@@ -36,7 +41,7 @@ try {
   const url = '/api/v1/tiktok/web/user/posts?sec_uid=example';
   assert.equal((await app.inject({ url })).statusCode, 401);
   assert.equal(
-    (await app.inject({ url, headers: { authorization: `Bearer ${authToken(store)}` } }))
+    (await app.inject({ url, headers: { authorization: `Bearer ${await authToken(store)}` } }))
       .statusCode,
     401,
   );
@@ -48,7 +53,10 @@ try {
   );
   const spec = await app.inject({ url: '/api/v1/openapi.json', headers });
   assert.equal(spec.statusCode, 200);
-  assert.equal(Object.keys(spec.json().paths).length, 42);
+  assert.deepEqual(
+    Object.keys(spec.json().paths).sort(),
+    Object.keys(publicSpecification().paths).sort(),
+  );
   assert.ok(!spec.json().paths['/api/accounts']);
   for (const path of [
     '/api/v1/instagram/web/profile/detail?user_id=123',
@@ -166,7 +174,7 @@ try {
   assert.equal(api.decode(token, key).cursor, '20');
   assert.throws(() => api.decode(token, randomBytes(32)));
   assert.ok(!Buffer.from(token, 'base64url').toString().includes('secret-account'));
-  const account = store.importAccount(
+  const account = await store.importAccount(
     {
       platform: 'tiktok',
       profileId: 'fixture',
@@ -187,8 +195,7 @@ try {
       },
     },
   );
-  store.status(account.id, 'ready');
-  store.setAccountPolicy(account.id, 0);
+  await store.status(account.id, 'ready');
   let closed = 0;
   api.open = async () => ({
     transport: {},
@@ -213,8 +220,12 @@ try {
       capturedAt: 1,
     }),
     run: async (_template, context, cursor) => {
-      assert.equal(store.lease(account.id), null, 'worker cannot lease an active API account');
-      context.saveSession();
+      assert.equal(
+        await store.lease(account.id),
+        null,
+        'worker cannot lease an active API account',
+      );
+      await context.saveSession();
       return {
         raw: { status_code: 0, cookie: 'secret' },
         cursor: cursor === '0' ? '20' : '40',
@@ -255,9 +266,9 @@ try {
     }),
     (e) => e.getStatus() === 502 && !JSON.stringify(e.getResponse()).includes('secret upstream'),
   );
-  assert.equal(store.getAccount(account.id).status, 'cooldown');
+  assert.equal((await store.getAccount(account.id)).status, 'cooldown');
   assert.equal(
-    store.sql.prepare('SELECT lease FROM accounts WHERE id=?').get(account.id).lease,
+    (await store.sql.one('SELECT lease FROM platform_sessions WHERE "accountId"=$1', account.id)).lease,
     null,
   );
   assert.equal(closed, 3);
@@ -322,7 +333,7 @@ try {
   );
 } finally {
   if (app) await app.close();
-  else store.close();
+  await isolated.cleanup();
   if (oldKey === undefined) delete process.env.DATALOM_PUBLIC_API_KEY;
   else process.env.DATALOM_PUBLIC_API_KEY = oldKey;
   if (oldRpm === undefined) delete process.env.DATALOM_PUBLIC_API_RPM;

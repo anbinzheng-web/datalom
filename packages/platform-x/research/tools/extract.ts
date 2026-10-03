@@ -1,25 +1,25 @@
-import { chromium } from "playwright";
-import { openStore } from "@datalom/shared/storage/runtime";
-import { errorRecord } from "@datalom/shared/runtime/diagnostics";
-import { DatalomError, type ProxyEndpoint } from "@datalom/shared/runtime/contracts";
-import { validateProxy } from "@datalom/network-node/route";
-import { profileConnection } from "../src/connection.ts";
-import { XSessions, type XSession } from "@datalom/platform-x/session";
-const store = openStore(),
+import { chromium } from 'playwright';
+import { openStore } from '@datalom/shared/storage/runtime';
+import { errorRecord } from '@datalom/shared/runtime/diagnostics';
+import { DatalomError, type ProxyEndpoint } from '@datalom/shared/runtime/contracts';
+import { validateProxy } from '@datalom/network-node/route';
+import { profileConnection } from '../src/connection.ts';
+import { XSessions, type XSession } from '@datalom/platform-x/session';
+const store = await openStore(),
   profileId = process.argv[2];
 let browser: Awaited<ReturnType<typeof chromium.connectOverCDP>> | undefined;
 try {
   const { endpoint, config } = await profileConnection(store, profileId);
-  const u = new URL("/browser/detail", config.host);
-  u.searchParams.set("workspaceId", config.workspaceId);
-  u.searchParams.set("dirId", profileId);
+  const u = new URL('/browser/detail', config.host);
+  u.searchParams.set('workspaceId', config.workspaceId);
+  u.searchParams.set('dirId', profileId);
   const response = await fetch(u, {
     headers: config.apiKey ? { apikey: config.apiKey } : {},
     signal: AbortSignal.timeout(15000),
   });
   const j = (await response.json()) as any;
   if (!response.ok || j.code !== 0)
-    throw new DatalomError("INVALID_INPUT", "无法读取 Profile 线路配置");
+    throw new DatalomError('INVALID_INPUT', '无法读取 Profile 线路配置');
   const detail = j.data.rows?.[0];
   const p = detail?.proxyInfo;
   const account: ProxyEndpoint = {
@@ -33,32 +33,26 @@ try {
   validateProxy(config.upstream as ProxyEndpoint);
   browser = await chromium.connectOverCDP(endpoint);
   const ctx = browser.contexts()[0];
-  const page = ctx.pages().find((p) => new URL(p.url()).hostname === "x.com");
-  if (!page) throw new DatalomError("INVALID_INPUT", "当前 Profile 没有 X 页面");
+  const page = ctx.pages().find((p) => new URL(p.url()).hostname === 'x.com');
+  if (!page) throw new DatalomError('INVALID_INPUT', '当前 Profile 没有 X 页面');
   const observed = await page.evaluate(() => ({
     selfScreenName: document
       .querySelector('a[data-testid="AppTabBar_Profile_Link"]')
-      ?.getAttribute("href")
-      ?.split("/")[1],
+      ?.getAttribute('href')
+      ?.split('/')[1],
     userAgent: navigator.userAgent,
     language: navigator.language,
     languages: [...navigator.languages],
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   }));
   const cdp = await ctx.newCDPSession(page);
-  const all = await cdp.send("Storage.getCookies");
+  const all = await cdp.send('Storage.getCookies');
   await cdp.detach();
   const cookies = all.cookies
-    .filter(
-      (c) =>
-        c.domain.replace(/^\./, "") === "x.com" || c.domain.endsWith(".x.com"),
-    )
-    .map((c) => ({ ...c, sameSite: c.sameSite ?? "Lax" }));
-  if (
-    !cookies.some((c) => c.name === "ct0") ||
-    !cookies.some((c) => c.name === "auth_token")
-  )
-    throw new DatalomError("LOGIN_REQUIRED", "未提取到已登录 X 会话");
+    .filter((c) => c.domain.replace(/^\./, '') === 'x.com' || c.domain.endsWith('.x.com'))
+    .map((c) => ({ ...c, sameSite: c.sameSite ?? 'Lax' }));
+  if (!cookies.some((c) => c.name === 'ct0') || !cookies.some((c) => c.name === 'auth_token'))
+    throw new DatalomError('LOGIN_REQUIRED', '未提取到已登录 X 会话');
   const session: XSession = {
     profileId,
     capturedAt: Date.now(),
@@ -76,8 +70,8 @@ try {
       expectedIp: p?.lastIp || undefined,
     },
   };
-  new XSessions(store).replace(session);
-  const evidenceId = store.diagnostics.event({}, "x-session", "extracted", {
+  await new XSessions(store).replace(session);
+  const evidenceId = await store.diagnostics.event({}, 'x-session', 'extracted', {
     profileId,
     session,
   });
@@ -90,13 +84,13 @@ try {
     evidenceId,
   });
 } catch (error) {
-  const id = store.diagnostics.event({}, "x-session", "failed", {
+  const id = await store.diagnostics.event({}, 'x-session', 'failed', {
     profileId,
     error: errorRecord(error),
   });
-  console.error({ status: "failed", evidenceId: id });
+  console.error({ status: 'failed', evidenceId: id });
   process.exitCode = 1;
 } finally {
   await browser?.close();
-  store.close();
+  await store.close();
 }

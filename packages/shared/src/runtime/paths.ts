@@ -6,6 +6,7 @@ import { resolve } from "node:path";
 export const repositoryRoot = fileURLToPath(
   new URL("../../../../", import.meta.url),
 );
+
 export const dataDirectory = () =>
   resolve(repositoryRoot, process.env.DATALOM_DATA_DIR ?? process.env.SPIDER_DATA_DIR ?? (existsSync(resolve(repositoryRoot, ".spider")) ? ".spider" : ".datalom"));
 export const sourceMode = import.meta.url.endsWith(".ts");

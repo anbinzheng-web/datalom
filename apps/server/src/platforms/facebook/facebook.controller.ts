@@ -10,7 +10,7 @@ export class FacebookController {
     @Inject(FacebookService) private readonly service: FacebookService,
   ) {}
   @Get(':resource/:action')
-  request(
+  async request(
     @Param('resource') resource: string,
     @Param('action') action: string,
     @Query() query: Record<string, unknown>,
@@ -19,6 +19,6 @@ export class FacebookController {
   ) {
     const def = endpoints[`${resource}/${action}`];
     if (!def) throw new NotFoundException();
-    return this.executor.request(this.service.platform, def, query, req, reply);
+    return await this.executor.request(this.service.platform, def, query, req, reply);
   }
 }

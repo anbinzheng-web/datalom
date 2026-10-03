@@ -186,14 +186,24 @@ export async function startRoute(
     exit = { code, signal };
     failed = true;
   });
+  let traceFailure: unknown;
+  let traceQueue = Promise.resolve();
   child.stderr?.on('data', (chunk: Buffer) => {
     stderrBytes += chunk.length;
     stderr = (stderr + chunk.toString('utf8')).slice(-65536);
-    trace?.('proxy-output', 'received', {
-      chunk: chunk.toString('utf8'),
-      bytes: chunk.length,
-      totalBytes: stderrBytes,
-    });
+    traceQueue = traceQueue
+      .then(async () => {
+        await trace?.('proxy-output', 'received', {
+          chunk: chunk.toString('utf8'),
+          bytes: chunk.length,
+          totalBytes: stderrBytes,
+        });
+      })
+      .catch((error) => {
+        traceFailure = error;
+        failed = true;
+        child.kill('SIGTERM');
+      });
   });
   let closed = false;
   const closedPromise = new Promise<void>((resolve) =>
@@ -203,7 +213,7 @@ export async function startRoute(
     }),
   );
   let stopPromise: Promise<void> | undefined;
-  const stop = () =>
+  const stop = async () =>
     (stopPromise ??= (async () => {
       let forced = false;
       if (!closed) {
@@ -221,7 +231,9 @@ export async function startRoute(
       try {
         unlinkSync(path);
       } catch {}
-      trace?.('proxy-process', 'stopped', {
+      await traceQueue;
+      if (traceFailure) throw traceFailure;
+      await trace?.('proxy-process', 'stopped', {
         pid: child.pid,
         exit,
         spawnError,
@@ -253,7 +265,7 @@ export async function startRoute(
         });
       });
       if (ready) {
-        trace?.('proxy-process', 'ready', { pid: child.pid, port, binary });
+        await trace?.('proxy-process', 'ready', { pid: child.pid, port, binary });
         try {
           unlinkSync(path);
         } catch {}

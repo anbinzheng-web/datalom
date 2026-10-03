@@ -1,14 +1,14 @@
-import { artifactPath } from "@datalom/shared/runtime/paths";
+import { artifactPath } from '@datalom/shared/runtime/paths';
 // Read only selected public webpack factories; never invoke application modules.
-import { chromium } from "playwright";
-import { createHash, randomUUID } from "node:crypto";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { parse } from "@babel/parser";
-import { generate } from "@babel/generator";
-import { openStore } from "@datalom/shared/storage/runtime";
-import { errorRecord } from "@datalom/shared/runtime/diagnostics";
-import { profileConnection } from "./connection.ts";
-const store = openStore(),
+import { chromium } from 'playwright';
+import { createHash, randomUUID } from 'node:crypto';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { parse } from '@babel/parser';
+import { generate } from '@babel/generator';
+import { openStore } from '@datalom/shared/storage/runtime';
+import { errorRecord } from '@datalom/shared/runtime/diagnostics';
+import { profileConnection } from './connection.ts';
+const store = await openStore(),
   requestId = randomUUID();
 let browser;
 try {
@@ -17,13 +17,12 @@ try {
   const page = browser
     .contexts()[0]
     .pages()
-    .find((p) => p.url().startsWith("https://x.com/search?"));
-  if (!page) throw Error("Public search page not open");
+    .find((p) => p.url().startsWith('https://x.com/search?'));
+  if (!page) throw Error('Public search page not open');
   const rows = await page.evaluate(() => {
     const result: { id: string; source: string; chunkIds: number[] }[] = [];
-    for (const chunk of (window as any).webpackChunk_twitter_responsive_web ||
-      [])
-      for (const id of ["995604", "316367", "991160", "447423", "147770"])
+    for (const chunk of (window as any).webpackChunk_twitter_responsive_web || [])
+      for (const id of ['995604', '316367', '991160', '447423', '147770'])
         if (chunk[1]?.[id])
           result.push({
             id,
@@ -32,14 +31,14 @@ try {
           });
     return result;
   });
-  mkdirSync(artifactPath("x/source-analysis"), { recursive: true });
+  mkdirSync(artifactPath('x/source-analysis'), { recursive: true });
   const index = [];
   for (const row of rows) {
-    const sha256 = createHash("sha256").update(row.source).digest("hex");
-    const evidenceId = store.diagnostics.event(
+    const sha256 = createHash('sha256').update(row.source).digest('hex');
+    const evidenceId = await store.diagnostics.event(
       { requestId },
-      "x-public-source-module",
-      "captured",
+      'x-public-source-module',
+      'captured',
       { ...row, sha256, pageUrl: page.url() },
     );
     const path = artifactPath(`x/source-analysis/module-${row.id}.js`);
@@ -47,7 +46,7 @@ try {
       path,
       `// Public webpack module ${row.id}; SHA256 ${sha256}\n` +
         generate(parse(`({${row.source}})`)).code +
-        "\n",
+        '\n',
     );
     index.push({
       id: row.id,
@@ -58,22 +57,19 @@ try {
     });
   }
   writeFileSync(
-    artifactPath("x/source-analysis/module-index.json"),
+    artifactPath('x/source-analysis/module-index.json'),
     JSON.stringify({ requestId, modules: index }, null, 2),
   );
   console.log({ requestId, modules: index });
 } catch (error) {
   console.log({
     failed: true,
-    evidenceId: store.diagnostics.event(
-      { requestId },
-      "x-public-source-module",
-      "failed",
-      { error: errorRecord(error) },
-    ),
+    evidenceId: await store.diagnostics.event({ requestId }, 'x-public-source-module', 'failed', {
+      error: errorRecord(error),
+    }),
   });
   process.exitCode = 1;
 } finally {
   await browser?.close();
-  store.close();
+  await store.close();
 }

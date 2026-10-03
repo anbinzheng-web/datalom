@@ -5,7 +5,7 @@ import { YoutubeService } from './youtube.service.js';
 export class YoutubeController {
   constructor(@Inject(YoutubeService) private readonly service: YoutubeService) {}
   @Get(':resource/:action')
-  request(
+  async request(
     @Param('resource') resource: string,
     @Param('action') action: string,
     @Query() query: Record<string, unknown>,

@@ -5,11 +5,11 @@ import { DoubaoService } from './doubao.service.js';
 export class DoubaoController {
   constructor(@Inject(DoubaoService) private readonly service: DoubaoService) {}
   @Post('chat/completion')
-  request(
+  async request(
     @Body() body: unknown,
     @Req() req: FastifyRequest,
     @Res({ passthrough: true }) reply: FastifyReply,
   ) {
-    return this.service.request(body, req, reply);
+    return await this.service.request(body, req, reply);
   }
 }

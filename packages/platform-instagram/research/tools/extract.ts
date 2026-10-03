@@ -1,25 +1,25 @@
-import { chromium } from "playwright";
-import { openStore } from "@datalom/shared/storage/runtime";
-import { errorRecord } from "@datalom/shared/runtime/diagnostics";
-import { DatalomError, type ProxyEndpoint } from "@datalom/shared/runtime/contracts";
-import { validateProxy } from "@datalom/network-node/route";
-import { profileConnection } from "../src/connection.ts";
-import { InstagramSessions, type InstagramSession } from "@datalom/platform-instagram/session";
-const store = openStore(),
+import { chromium } from 'playwright';
+import { openStore } from '@datalom/shared/storage/runtime';
+import { errorRecord } from '@datalom/shared/runtime/diagnostics';
+import { DatalomError, type ProxyEndpoint } from '@datalom/shared/runtime/contracts';
+import { validateProxy } from '@datalom/network-node/route';
+import { profileConnection } from '../src/connection.ts';
+import { InstagramSessions, type InstagramSession } from '@datalom/platform-instagram/session';
+const store = await openStore(),
   profileId = process.argv[2];
 let browser: Awaited<ReturnType<typeof chromium.connectOverCDP>> | undefined;
 try {
   const { endpoint, config } = await profileConnection(store, profileId);
-  const u = new URL("/browser/detail", config.host);
-  u.searchParams.set("workspaceId", config.workspaceId);
-  u.searchParams.set("dirId", profileId);
+  const u = new URL('/browser/detail', config.host);
+  u.searchParams.set('workspaceId', config.workspaceId);
+  u.searchParams.set('dirId', profileId);
   const response = await fetch(u, {
     headers: config.apiKey ? { apikey: config.apiKey } : {},
     signal: AbortSignal.timeout(15000),
   });
   const j = (await response.json()) as any;
   if (!response.ok || j.code !== 0)
-    throw new DatalomError("INVALID_INPUT", "无法读取 Profile 线路配置");
+    throw new DatalomError('INVALID_INPUT', '无法读取 Profile 线路配置');
   const detail = j.data.rows?.[0];
   const p = detail?.proxyInfo;
   const account: ProxyEndpoint = {
@@ -33,11 +33,8 @@ try {
   validateProxy(config.upstream as ProxyEndpoint);
   browser = await chromium.connectOverCDP(endpoint);
   const ctx = browser.contexts()[0];
-  const page = ctx
-    .pages()
-    .find((p) => new URL(p.url()).hostname === "www.instagram.com");
-  if (!page)
-    throw new DatalomError("INVALID_INPUT", "当前 Profile 没有 Instagram 页面");
+  const page = ctx.pages().find((p) => new URL(p.url()).hostname === 'www.instagram.com');
+  if (!page) throw new DatalomError('INVALID_INPUT', '当前 Profile 没有 Instagram 页面');
   const observed = await page.evaluate(() => ({
     userAgent: navigator.userAgent,
     language: navigator.language,
@@ -45,20 +42,15 @@ try {
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   }));
   const cdp = await ctx.newCDPSession(page);
-  const all = await cdp.send("Storage.getCookies");
+  const all = await cdp.send('Storage.getCookies');
   await cdp.detach();
   const cookies = all.cookies
     .filter(
-      (c) =>
-        c.domain.replace(/^\./, "") === "instagram.com" ||
-        c.domain.endsWith(".instagram.com"),
+      (c) => c.domain.replace(/^\./, '') === 'instagram.com' || c.domain.endsWith('.instagram.com'),
     )
-    .map((c) => ({ ...c, sameSite: c.sameSite ?? "Lax" }));
-  if (
-    !cookies.some((c) => c.name === "ds_user_id") ||
-    !cookies.some((c) => c.name === "sessionid")
-  )
-    throw new DatalomError("LOGIN_REQUIRED", "未提取到已登录 Instagram 会话");
+    .map((c) => ({ ...c, sameSite: c.sameSite ?? 'Lax' }));
+  if (!cookies.some((c) => c.name === 'ds_user_id') || !cookies.some((c) => c.name === 'sessionid'))
+    throw new DatalomError('LOGIN_REQUIRED', '未提取到已登录 Instagram 会话');
   const session: InstagramSession = {
     profileId,
     capturedAt: Date.now(),
@@ -76,13 +68,11 @@ try {
       expectedIp: p?.lastIp || undefined,
     },
   };
-  new InstagramSessions(store).replace(session);
-  const evidenceId = store.diagnostics.event(
-    {},
-    "instagram-session",
-    "extracted",
-    { profileId, session },
-  );
+  await new InstagramSessions(store).replace(session);
+  const evidenceId = await store.diagnostics.event({}, 'instagram-session', 'extracted', {
+    profileId,
+    session,
+  });
   console.log({
     profileId,
     cookieCount: cookies.length,
@@ -92,13 +82,13 @@ try {
     evidenceId,
   });
 } catch (error) {
-  const id = store.diagnostics.event({}, "instagram-session", "failed", {
+  const id = await store.diagnostics.event({}, 'instagram-session', 'failed', {
     profileId,
     error: errorRecord(error),
   });
-  console.error({ status: "failed", evidenceId: id });
+  console.error({ status: 'failed', evidenceId: id });
   process.exitCode = 1;
 } finally {
   await browser?.close();
-  store.close();
+  await store.close();
 }

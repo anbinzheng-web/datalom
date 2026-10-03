@@ -11,3 +11,4 @@ test-results/
 .next-dev/
 
 *.tsbuildinfo
+packages/shared/src/storage/generated/

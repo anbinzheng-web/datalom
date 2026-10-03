@@ -22,7 +22,7 @@ export class BrowserPool {
     let entry = this.entries.get(key);
     if (entry?.closing) {
       await entry.closing;
-      return this.acquire(workspaceId, profileId);
+      return await this.acquire(workspaceId, profileId);
     }
     if (!entry) {
       entry = { refs: 0, session: this.open(workspaceId, profileId), pageQueue: Promise.resolve() };

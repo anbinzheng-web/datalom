@@ -472,32 +472,7 @@ export interface paths {
                 };
             };
         };
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        minIntervalMs: number;
-                    };
-                };
-            };
-            responses: {
-                /** @description Default Response */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-            };
-        };
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -549,8 +524,6 @@ export interface paths {
             requestBody: {
                 content: {
                     "application/json": {
-                        label?: string;
-                        notes?: string;
                         /** @enum {unknown} */
                         status?: "disabled" | "pending";
                     };
@@ -594,172 +567,6 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content?: never;
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/tiktok/video": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        accountId: string;
-                        /** @enum {string} */
-                        operation?: "video.detail" | "video.comments";
-                        video: string;
-                        cursor?: string;
-                        count?: number;
-                        maxPages?: number;
-                        requestId?: string;
-                        /**
-                         * Format: int64
-                         * @description Unix milliseconds; future deadline within one hour. Defaults to five minutes.
-                         */
-                        deadline?: number;
-                    };
-                };
-            };
-            responses: {
-                /** @description Default Response */
-                202: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            id: string;
-                            requestId: string;
-                            accountId: string;
-                            /** @enum {string} */
-                            status: "queued" | "running" | "succeeded" | "failed" | "cancelled";
-                            input: {
-                                accountId: string;
-                                /** @enum {string} */
-                                operation: "video.detail" | "video.comments";
-                                video: string;
-                                cursor?: string;
-                                count?: number;
-                                maxPages?: number;
-                            };
-                            /** @description Operation-specific JSON; partial results survive failures. */
-                            result: unknown;
-                            error: {
-                                code: string;
-                                message: string;
-                            } | null;
-                            /** Format: int64 */
-                            createdAt: number;
-                            /** Format: int64 */
-                            updatedAt: number;
-                            /** Format: int64 */
-                            deadline: number;
-                            pages: number;
-                            /** @enum {integer} */
-                            cancelled: 0 | 1;
-                        };
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/tiktok/comments": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        accountId: string;
-                        /** @enum {string} */
-                        operation?: "video.detail" | "video.comments";
-                        video: string;
-                        cursor?: string;
-                        count?: number;
-                        maxPages?: number;
-                        requestId?: string;
-                        /**
-                         * Format: int64
-                         * @description Unix milliseconds; future deadline within one hour. Defaults to five minutes.
-                         */
-                        deadline?: number;
-                    };
-                };
-            };
-            responses: {
-                /** @description Default Response */
-                202: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": {
-                            id: string;
-                            requestId: string;
-                            accountId: string;
-                            /** @enum {string} */
-                            status: "queued" | "running" | "succeeded" | "failed" | "cancelled";
-                            input: {
-                                accountId: string;
-                                /** @enum {string} */
-                                operation: "video.detail" | "video.comments";
-                                video: string;
-                                cursor?: string;
-                                count?: number;
-                                maxPages?: number;
-                            };
-                            /** @description Operation-specific JSON; partial results survive failures. */
-                            result: unknown;
-                            error: {
-                                code: string;
-                                message: string;
-                            } | null;
-                            /** Format: int64 */
-                            createdAt: number;
-                            /** Format: int64 */
-                            updatedAt: number;
-                            /** Format: int64 */
-                            deadline: number;
-                            pages: number;
-                            /** @enum {integer} */
-                            cancelled: 0 | 1;
-                        };
-                    };
                 };
             };
         };

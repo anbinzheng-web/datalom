@@ -1,27 +1,23 @@
-import { signInProcess } from "@datalom/platform-tiktok/signer-process";
-import { decodeGnarly } from "@datalom/platform-tiktok/signature-codec";
-import { chromium, type Route } from "playwright";
-import { Impit } from "impit";
-import { openStore } from "@datalom/shared/storage/runtime";
-import {
-  RoxyConnector,
-  type RoxyConfig,
-} from "../src/roxy.ts";
-import { startRoute } from "@datalom/network-node/route";
-const store = openStore(),
-  connector = new RoxyConnector(store.getSetting<RoxyConfig>("roxy")!),
+import { roxyConfig } from '@datalom/shared/runtime/config';
+import { signInProcess } from '@datalom/platform-tiktok/signer-process';
+import { decodeGnarly } from '@datalom/platform-tiktok/signature-codec';
+import { chromium, type Route } from 'playwright';
+import { Impit } from 'impit';
+import { openStore } from '@datalom/shared/storage/runtime';
+import { RoxyConnector, type RoxyConfig } from '../src/roxy.ts';
+import { startRoute } from '@datalom/network-node/route';
+const store = await openStore(),
+  connector = new RoxyConnector((roxyConfig())!),
   profileId = process.argv[2];
-const account = store.listAccounts().find((a) => a.profileId === profileId)!;
-const lease = store.lease(account.id, true);
-if (!lease) throw new Error("Account busy");
-const browser = await chromium.connectOverCDP(
-    await connector.endpoint(profileId),
-  ),
+const account = (await store.listAccounts()).find((a) => a.profileId === profileId)!;
+const lease = await store.lease(account.id, true);
+if (!lease) throw new Error('Account busy');
+const browser = await chromium.connectOverCDP(await connector.endpoint(profileId)),
   page = browser
     .contexts()[0]
     .pages()
-    .find((p) => p.url().includes("/search"))!;
-const network = await startRoute(store.getSecret(account.id).route, store.dir);
+    .find((p) => p.url().includes('/search'))!;
+const network = await startRoute((await store.getSecret(account.id)).route, store.dir);
 let sampled = false,
   clicked = false;
 const pending: Promise<void>[] = [];
@@ -36,15 +32,13 @@ const intercept = async (route: Route) => {
   const safeHeaders = Object.fromEntries(
     Object.entries(headers).filter(
       ([k]) =>
-        !k.startsWith(":") &&
-        !["host", "content-length", "connection", "accept-encoding"].includes(
-          k,
-        ),
+        !k.startsWith(':') &&
+        !['host', 'content-length', 'connection', 'accept-encoding'].includes(k),
     ),
   );
   try {
     const client = new Impit({
-      browser: "chrome151",
+      browser: 'chrome151',
       proxyUrl: network.url,
       http3: false,
       followRedirects: false,
@@ -52,19 +46,16 @@ const intercept = async (route: Route) => {
     });
     const start = Date.now();
     const signed =
-      process.argv[3] === "fresh"
+      process.argv[3] === 'fresh'
         ? await signInProcess(
             {
               templateUrl: request.url(),
-              userAgent: headers["user-agent"],
+              userAgent: headers['user-agent'],
               updates: {},
               counter: 0,
               now:
-                Number(
-                  decodeGnarly(
-                    new URL(request.url()).searchParams.get("X-Gnarly")!,
-                  )[6],
-                ) * 1000,
+                Number(decodeGnarly(new URL(request.url()).searchParams.get('X-Gnarly')!)[6]) *
+                1000,
             },
             AbortSignal.timeout(5000),
           )
@@ -78,9 +69,9 @@ const intercept = async (route: Route) => {
     try {
       j = JSON.parse(body);
     } catch {}
-    store.evidence(
+    await store.evidence(
       account.id,
-      "transport-diagnosis",
+      'transport-diagnosis',
       `独立 HTTP 先发 · HTTP ${r.status} · ${body.length} bytes`,
       {
         url: request.url(),
@@ -91,9 +82,9 @@ const intercept = async (route: Route) => {
     );
     console.log({
       client:
-        process.argv[3] === "fresh"
-          ? "node-generated-before-browser"
-          : "impit-chrome151-before-browser",
+        process.argv[3] === 'fresh'
+          ? 'node-generated-before-browser'
+          : 'impit-chrome151-before-browser',
       status: r.status,
       bytes: body.length,
       code: j?.status_code,
@@ -104,8 +95,8 @@ const intercept = async (route: Route) => {
     await route.continue();
   }
 };
-const listener = (r: any) => {
-  if (new URL(r.url()).pathname !== "/api/comment/list/") return;
+const listener = async (r: any) => {
+  if (new URL(r.url()).pathname !== '/api/comment/list/') return;
   pending.push(
     (async () => {
       try {
@@ -115,28 +106,28 @@ const listener = (r: any) => {
           j = JSON.parse(body);
         } catch {}
         console.log({
-          client: "browser-after-impit",
+          client: 'browser-after-impit',
           status: r.status(),
           bytes: body.length,
           code: j?.status_code,
           count: j?.comments?.length,
         });
-        const s = store.getSecret(account.id);
+        const s = await store.getSecret(account.id);
         s.research = {
           ...s.research,
           requestTemplates: {
             ...s.research?.requestTemplates,
-            "video.comments": {
+            'video.comments': {
               url: r.url(),
               headers: await r.request().allHeaders(),
               capturedAt: Date.now(),
             },
           },
         };
-        store.saveSecret(account.id, account.version, s, lease);
-        store.evidence(
+        await store.saveSecret(account.id, account.version, s, lease);
+        await store.evidence(
           account.id,
-          "capture",
+          'capture',
           `浏览器对照 · HTTP ${r.status()} · ${body.length} bytes`,
           {
             url: r.url(),
@@ -149,25 +140,22 @@ const listener = (r: any) => {
     })(),
   );
 };
-const timer = setInterval(() => store.renew(account.id, lease), 15000);
+const timer = setInterval(async () => await store.renew(account.id, lease), 15000);
 try {
-  await page.locator("body").ariaSnapshot();
-  page.on("response", listener);
-  await page.route("**/api/comment/list/**", intercept);
+  await page.locator('body').ariaSnapshot();
+  page.on('response', listener);
+  await page.route('**/api/comment/list/**', intercept);
   await page.locator('a[href*="/video/"]').first().click();
   clicked = true;
   await page.waitForTimeout(28000);
   await Promise.allSettled(pending);
 } finally {
-  await page.unroute("**/api/comment/list/**", intercept);
-  page.off("response", listener);
-  if (clicked)
-    await page
-      .goBack({ waitUntil: "domcontentloaded", timeout: 15000 })
-      .catch(() => {});
+  await page.unroute('**/api/comment/list/**', intercept);
+  page.off('response', listener);
+  if (clicked) await page.goBack({ waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => {});
   await browser.close();
   await network.stop();
   clearInterval(timer);
-  store.release(account.id, lease);
-  store.close();
+  await store.release(account.id, lease);
+  await store.close();
 }

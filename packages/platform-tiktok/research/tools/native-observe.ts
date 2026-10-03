@@ -1,23 +1,21 @@
-import { artifactPath } from "@datalom/shared/runtime/paths";
-import { dataDirectory } from "@datalom/shared/runtime/paths";
-import { resolve as resolveDataPath } from "node:path";
-import { chromium, type Page, type Response, type Request } from "playwright";
-import { randomUUID, createHash } from "node:crypto";
-import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
-import { openStore } from "@datalom/shared/storage/runtime";
-import { errorRecord } from "@datalom/shared/runtime/diagnostics";
-import {
-  RoxyConnector,
-  type RoxyConfig,
-} from "../src/roxy.ts";
+import { roxyConfig } from '@datalom/shared/runtime/config';
+import { artifactPath } from '@datalom/shared/runtime/paths';
+import { dataDirectory } from '@datalom/shared/runtime/paths';
+import { resolve as resolveDataPath } from 'node:path';
+import { chromium, type Page, type Response, type Request } from 'playwright';
+import { randomUUID, createHash } from 'node:crypto';
+import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { openStore } from '@datalom/shared/storage/runtime';
+import { errorRecord } from '@datalom/shared/runtime/diagnostics';
+import { RoxyConnector, type RoxyConfig } from '../src/roxy.ts';
 
 // Passive research recorder. It never sends platform requests or publishes
 // templates. Browser interactions occur separately against observed page UI.
-const store = openStore();
-const account = store
-  .listAccounts()
-  .find((a) => a.id === process.argv[2] || a.label === process.argv[2]);
-if (!account) throw new Error("Provide an existing Datalom account ID or label");
+const store = await openStore();
+const account = (await store.listAccounts()).find(
+  (a) => a.id === process.argv[2] || a.id === process.argv[2],
+);
+if (!account) throw new Error('Provide an existing Datalom account ID or label');
 const runId = randomUUID();
 const pending = new Set<Promise<void>>();
 const catalogue = new Map<string, any>();
@@ -25,8 +23,8 @@ const requestContexts = new WeakMap<
   Request,
   { action: string; pageId: string; pageUrl: string; requestId: string }
 >();
-const record = (stage: string, outcome: string, data: unknown) =>
-  store.diagnostics.event(
+const record = async (stage: string, outcome: string, data: unknown) =>
+  await store.diagnostics.event(
     { requestId: runId, accountId: account.id },
     `tiktok-native-${stage}`,
     outcome,
@@ -36,29 +34,29 @@ const isTarget = (value: string) => {
   try {
     const u = new URL(value);
     return (
-      u.protocol === "https:" &&
-      (u.hostname === "tiktok.com" || u.hostname.endsWith(".tiktok.com")) &&
+      u.protocol === 'https:' &&
+      (u.hostname === 'tiktok.com' || u.hostname.endsWith('.tiktok.com')) &&
       /^\/(api|webcast|aweme)\//.test(u.pathname) &&
       !/\/(inbox|notice|feedback|message|im|passport|mention|at|privacy|compliance|passport)\//.test(
         u.pathname,
       ) &&
-      !u.pathname.includes("/following/request/")
+      !u.pathname.includes('/following/request/')
     );
   } catch {
     return false;
   }
 };
 const task = (promise: Promise<void>) => {
-  const safe = promise.catch((error) => {
-    record("capture", "failed", errorRecord(error));
+  const safe = promise.catch(async (error) => {
+    await record('capture', 'failed', errorRecord(error));
   });
   pending.add(safe);
   void safe.then(() => pending.delete(safe));
 };
-let action = "initial-observation";
+let action = 'initial-observation';
 let stopping = false;
 const flush = () => {
-  mkdirSync(artifactPath("tiktok-native"), { recursive: true });
+  mkdirSync(artifactPath('tiktok-native'), { recursive: true });
   writeFileSync(
     artifactPath(`tiktok-native/${runId}.json`),
     JSON.stringify(
@@ -76,20 +74,16 @@ const flush = () => {
 };
 async function capture(response: Response, pageId: string) {
   const request = response.request();
-  if (
-    !isTarget(response.url()) ||
-    !["xhr", "fetch"].includes(request.resourceType())
-  )
-    return;
+  if (!isTarget(response.url()) || !['xhr', 'fetch'].includes(request.resourceType())) return;
   const u = new URL(response.url());
   const requestContext = requestContexts.get(request) ?? {
     action,
     pageId,
-    pageUrl: "unknown",
+    pageUrl: 'unknown',
     requestId: randomUUID(),
   };
   const observedAction = requestContext.action;
-  const headersId = record("headers", "received", {
+  const headersId = await record('headers', 'received', {
     ...requestContext,
     action: observedAction,
     pageId,
@@ -113,12 +107,10 @@ async function capture(response: Response, pageId: string) {
   };
   catalogue.set(key, entry);
   entry.statuses = [...new Set([...entry.statuses, response.status()])];
-  entry.queryKeys = [
-    ...new Set([...entry.queryKeys, ...u.searchParams.keys()]),
-  ];
+  entry.queryKeys = [...new Set([...entry.queryKeys, ...u.searchParams.keys()])];
   try {
     const bytes = await response.body();
-    const body = bytes.toString("utf8");
+    const body = bytes.toString('utf8');
     const omitted = bytes.length > 8 * 1024 * 1024;
     const payload = {
       ...requestContext,
@@ -133,23 +125,17 @@ async function capture(response: Response, pageId: string) {
       body: omitted ? undefined : body,
       bodyOmitted: omitted,
       bodyBytes: bytes.length,
-      sha256: createHash("sha256").update(bytes).digest("hex"),
+      sha256: createHash('sha256').update(bytes).digest('hex'),
       headersId,
     };
-    const evidenceId = record(
-      "http",
-      omitted ? "body-too-large" : "received",
-      payload,
-    );
+    const evidenceId = await record('http', omitted ? 'body-too-large' : 'received', payload);
     entry.captures++;
     let businessStatus: unknown;
     try {
       const json = JSON.parse(body);
-      if (json && typeof json === "object" && !Array.isArray(json)) {
+      if (json && typeof json === 'object' && !Array.isArray(json)) {
         businessStatus = json.status_code ?? json.statusCode ?? json.code;
-        entry.responseKeys = [
-          ...new Set([...entry.responseKeys, ...Object.keys(json)]),
-        ];
+        entry.responseKeys = [...new Set([...entry.responseKeys, ...Object.keys(json)])];
         entry.listFields = [
           ...new Set([
             ...entry.listFields,
@@ -172,7 +158,7 @@ async function capture(response: Response, pageId: string) {
     });
     console.log(
       JSON.stringify({
-        event: "response",
+        event: 'response',
         path: u.pathname,
         method: request.method(),
         status: response.status(),
@@ -182,7 +168,7 @@ async function capture(response: Response, pageId: string) {
     );
   } catch (error) {
     entry.captureFailures++;
-    record("http", "capture-failed", {
+    await record('http', 'capture-failed', {
       ...requestContext,
       action: observedAction,
       pageId,
@@ -195,12 +181,8 @@ async function capture(response: Response, pageId: string) {
 }
 function attach(page: Page) {
   const pageId = randomUUID();
-  page.on("request", (request) => {
-    if (
-      !isTarget(request.url()) ||
-      !["xhr", "fetch"].includes(request.resourceType())
-    )
-      return;
+  page.on('request', async (request) => {
+    if (!isTarget(request.url()) || !['xhr', 'fetch'].includes(request.resourceType())) return;
     const observedAction = action;
     const requestContext = {
       action: observedAction,
@@ -211,7 +193,7 @@ function attach(page: Page) {
     requestContexts.set(request, requestContext);
     task(
       (async () => {
-        record("request", "started", {
+        await record('request', 'started', {
           ...requestContext,
           action: observedAction,
           pageId,
@@ -224,10 +206,10 @@ function attach(page: Page) {
       })(),
     );
   });
-  page.on("response", (response) => task(capture(response, pageId)));
-  page.on("requestfailed", (request) => {
+  page.on('response', async (response) => task(capture(response, pageId)));
+  page.on('requestfailed', async (request) => {
     if (isTarget(request.url()))
-      record("request", "failed", {
+      await record('request', 'failed', {
         pageId,
         action,
         ...requestContexts.get(request),
@@ -235,10 +217,10 @@ function attach(page: Page) {
         failure: request.failure(),
       });
   });
-  page.on("pageerror", (error) => {
+  page.on('pageerror', async (error) => {
     const u = new URL(page.url());
-    if (u.hostname === "tiktok.com" || u.hostname.endsWith(".tiktok.com"))
-      record("page", "error", {
+    if (u.hostname === 'tiktok.com' || u.hostname.endsWith('.tiktok.com'))
+      await record('page', 'error', {
         pageId,
         pageUrl: page.url(),
         action,
@@ -246,23 +228,21 @@ function attach(page: Page) {
       });
   });
 }
-const connector = new RoxyConnector(store.getSetting<RoxyConfig>("roxy")!);
+const connector = new RoxyConnector((roxyConfig())!);
 let browser: Awaited<ReturnType<typeof chromium.connectOverCDP>> | undefined;
 let resolveStop: (() => void) | undefined;
 const stop = () => {
   stopping = true;
   resolveStop?.();
 };
-process.once("SIGTERM", stop);
-process.once("SIGINT", stop);
+process.once('SIGTERM', stop);
+process.once('SIGINT', stop);
 try {
-  browser = await chromium.connectOverCDP(
-    await connector.endpoint(account.profileId),
-  );
-  browser.once("disconnected", stop);
+  browser = await chromium.connectOverCDP(await connector.endpoint(account.profileId));
+  browser.once('disconnected', stop);
   for (const context of browser.contexts()) {
     context.pages().forEach(attach);
-    context.on("page", attach);
+    context.on('page', attach);
   }
   const metadata = {
     runId,
@@ -271,19 +251,23 @@ try {
     profileId: account.profileId,
     startedAt: Date.now(),
   };
-  writeFileSync(resolveDataPath(dataDirectory(), "tiktok-native-active.json"), JSON.stringify(metadata), {
-    mode: 0o600,
-  });
-  record("observer", "started", metadata);
-  console.log(JSON.stringify({ event: "ready", ...metadata }));
+  writeFileSync(
+    resolveDataPath(dataDirectory(), 'tiktok-native-active.json'),
+    JSON.stringify(metadata),
+    {
+      mode: 0o600,
+    },
+  );
+  await record('observer', 'started', metadata);
+  console.log(JSON.stringify({ event: 'ready', ...metadata }));
   // stdin accepts labels only; no arbitrary script or network target execution.
-  process.stdin.setEncoding("utf8");
-  process.stdin.on("data", (chunk) => {
+  process.stdin.setEncoding('utf8');
+  process.stdin.on('data', async (chunk) => {
     const label = String(chunk).trim();
-    if (label === "stop") stop();
+    if (label === 'stop') stop();
     else if (/^[a-z0-9._-]{1,100}$/i.test(label)) {
       action = label;
-      record("action", "labelled", { action });
+      await record('action', 'labelled', { action });
     }
   });
   if (!stopping)
@@ -291,23 +275,23 @@ try {
       resolveStop = resolve;
     });
 } catch (error) {
-  record("observer", "failed", { error: errorRecord(error) });
+  await record('observer', 'failed', { error: errorRecord(error) });
   process.exitCode = 1;
 } finally {
   await browser?.close(); // Detach from the existing profile; never closes Roxy profile.
   await Promise.allSettled([...pending]);
   flush();
-  record("observer", "closed", { endpoints: catalogue.size });
-  const activePath = resolveDataPath(dataDirectory(), "tiktok-native-active.json");
+  await record('observer', 'closed', { endpoints: catalogue.size });
+  const activePath = resolveDataPath(dataDirectory(), 'tiktok-native-active.json');
   if (existsSync(activePath)) {
-    const active = JSON.parse(readFileSync(activePath, "utf8"));
+    const active = JSON.parse(readFileSync(activePath, 'utf8'));
     if (active.runId === runId)
       writeFileSync(
         activePath,
-        JSON.stringify({ ...active, status: "closed", endedAt: Date.now() }),
+        JSON.stringify({ ...active, status: 'closed', endedAt: Date.now() }),
         { mode: 0o600 },
       );
   }
-  store.close();
+  await store.close();
   process.stdin.pause();
 }

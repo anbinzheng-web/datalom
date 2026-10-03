@@ -11,10 +11,11 @@ import { parseParameters, type EndpointDefinition } from './platform-endpoint.js
 export interface CapturedPlatform {
   platform: 'instagram' | 'facebook' | 'x';
   sessions: {
-    acquire(id: string): { session: any; lease: string; version: number };
-    save(session: any, version: number, lease: string): void;
-    renew(id: string, lease: string): boolean;
-    release(id: string, lease: string, cooldown: number): void;
+    available(): Promise<string[]>;
+    acquire(id: string): Promise<{ session: any; lease: string; version: number }>;
+    save(session: any, version: number, lease: string): Promise<void>;
+    renew(id: string, lease: string): Promise<boolean>;
+    release(id: string, lease: string, cooldown: number): Promise<void>;
   };
   build(operation: any, capture: any, updates: Record<string, unknown>, counter: number): any;
   validate(operation: any, variables: any, status: number, body: string): any;
@@ -32,14 +33,14 @@ export class CapturedPlatformService {
   ) {}
   private route = startRoute;
 
-  request(
+  async request(
     platform: CapturedPlatform,
     def: EndpointDefinition,
     query: Record<string, unknown>,
     req: FastifyRequest,
     reply: FastifyReply,
   ) {
-    const auth = this.api.authenticate(req, reply);
+    const auth = await this.api.authenticate(req, reply);
     const values = parseParameters(def, query, auth.id);
     if (platform.platform === 'x') {
       if (
@@ -64,24 +65,23 @@ export class CapturedPlatformService {
       parameters: values,
       cursor: query.cursor as string | undefined,
       paginated: !!def.cursorKey,
-      acquire: (pinned, state) => {
+      acquire: async (pinned, state) => {
         const previous = state
           ? (JSON.parse(state) as { capture: string; cursor: string })
           : undefined;
-        const table = `${platform.platform}_sessions`; // platform is a closed union, never request input.
-        const profiles = this.store.sql
-          .prepare(`SELECT profileId FROM ${table} WHERE leaseUntil<=? AND nextAt<=?`)
-          .all(Date.now(), Date.now()) as { profileId: string }[];
-        for (const { profileId } of profiles) {
+        const profiles = await platform.sessions.available();
+        for (const profileId of profiles) {
           if (pinned && pinned !== profileId) continue;
-          const rows = this.store.sql
-            .prepare(
-              "SELECT id FROM diagnostic_events WHERE (stage=? AND outcome='received') OR (stage=? AND outcome='validated') ORDER BY createdAt DESC LIMIT 500",
-            )
-            .all(`${platform.platform}-http`, `${platform.platform}-template`) as { id: string }[];
+          const rows = (await this.store.diagnostics.findCached(
+            `captures:${platform.platform}`,
+            (row) =>
+              (row.stage === `${platform.platform}-http` && row.outcome === 'received') ||
+              (row.stage === `${platform.platform}-template` && row.outcome === 'validated'),
+            500,
+          )) as { id: string }[];
           for (const row of rows) {
             if (previous && row.id !== previous.capture) continue;
-            const capture = this.store.diagnostics.rawEvent(row.id) as any;
+            const capture = (await this.store.diagnostics.rawEvent(row.id)) as any;
             if (capture?.profileId !== profileId || capture.status !== 200) continue;
             let request: any;
             try {
@@ -130,21 +130,22 @@ export class CapturedPlatformService {
             } catch {
               continue;
             }
-            let held: ReturnType<CapturedPlatform['sessions']['acquire']>;
+            let held: Awaited<ReturnType<CapturedPlatform['sessions']['acquire']>>;
             try {
-              held = platform.sessions.acquire(profileId);
+              held = await platform.sessions.acquire(profileId);
             } catch {
               continue;
             }
             return {
               account: profileId,
-              renew: () => platform.sessions.renew(profileId, held.lease),
-              release: (cooldown) => platform.sessions.release(profileId, held.lease, cooldown),
+              renew: async () => await platform.sessions.renew(profileId, held.lease),
+              release: async (cooldown) =>
+                await platform.sessions.release(profileId, held.lease, cooldown),
               run: async (signal) => {
                 if (!held.session.route?.verifiedAt)
                   throw new DatalomError('PROXY_UNAVAILABLE', '会话线路未验证');
-                const trace: Trace = (stage, outcome, payload, code) => {
-                  this.store.diagnostics.event(
+                const trace: Trace = async (stage, outcome, payload, code) => {
+                  await this.store.diagnostics.event(
                     { requestId: auth.id, accountId: profileId },
                     stage,
                     outcome,
@@ -180,10 +181,10 @@ export class CapturedPlatformService {
                     )
                   )
                     throw new DatalomError('INVALID_INPUT', '不公开服务账号自身资料');
-                  platform.sessions.save(held.session, held.version, held.lease);
+                  await platform.sessions.save(held.session, held.version, held.lease);
                   const transport = new platform.transport(route.url, held.session, trace);
                   const response = await transport.request(built, signal);
-                  platform.sessions.save(held.session, held.version, held.lease);
+                  await platform.sessions.save(held.session, held.version, held.lease);
                   const result = platform.validate(
                     def.operation,
                     built.variables,

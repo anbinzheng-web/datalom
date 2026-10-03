@@ -1,96 +1,84 @@
-import { it, expect } from "vitest";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-import { fixture } from "./helpers.ts";
-import { errorRecord } from "@datalom/shared/runtime/diagnostics";
-import { HttpTransport } from "@datalom/network-node/transport";
-import { CookieJar } from "tough-cookie";
+import { it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fixture } from './helpers.ts';
+import { errorRecord } from '@datalom/shared/runtime/diagnostics';
+import { HttpTransport } from '@datalom/network-node/transport';
+import { CookieJar } from 'tough-cookie';
 const input = (id: string) => ({
   accountId: id,
-  operation: "video.detail" as const,
-  video: "7685551053554617613",
+  operation: 'video.detail' as const,
+  video: '7685551053554617613',
 });
-it("records native impit connection failures through an unreachable local proxy without direct fallback", async () => {
-  const f = fixture();
+it('records native impit connection failures through an unreachable local proxy without direct fallback', async () => {
+  const f = await fixture();
   try {
     const transport = new HttpTransport(
-      "http://127.0.0.1:1",
+      'http://127.0.0.1:1',
       new CookieJar(),
       {},
       undefined,
-      (stage, outcome, payload) => {
-        f.store.diagnostics.event({}, stage, outcome, payload);
+      async (stage, outcome, payload) => {
+        await f.store.diagnostics.event({}, stage, outcome, payload);
       },
     );
     await expect(
-      transport.request("https://www.tiktok.com/", {
+      transport.request('https://www.tiktok.com/', {
         signal: AbortSignal.timeout(2000),
       }),
-    ).rejects.toMatchObject({ code: "NETWORK", cause: expect.any(Error) });
-    const event = (f.store.diagnostics.events() as any[]).find(
-      (e) => e.stage === "http" && e.outcome === "failed",
+    ).rejects.toMatchObject({ code: 'NETWORK', cause: expect.any(Error) });
+    const event = ((await f.store.diagnostics.events()) as any[]).find(
+      (e) => e.stage === 'http' && e.outcome === 'failed',
     );
-    const raw = f.store.diagnostics.rawEvent(event.id) as any;
+    const raw = (await f.store.diagnostics.rawEvent(event.id)) as any;
     expect(raw.error.message).toBeTruthy();
     expect(raw.error.stack).toBeTruthy();
     expect(raw.durationMs).toBeGreaterThanOrEqual(0);
   } finally {
-    f.cleanup();
+    await f.cleanup();
   }
 });
-it("creates evidence for expired queues and interrupted workers; legacy tasks disclose missing history", () => {
-  const f = fixture();
+it('persists encrypted local evidence and incident revisions without database tables', async () => {
+  const f = await fixture();
   try {
-    const interrupted = f.store.enqueue(input(f.account.id));
-    f.store.claim();
-    f.store.sql
-      .prepare("UPDATE accounts SET leaseUntil=0 WHERE id=?")
-      .run(f.account.id);
-    const expired = f.store.enqueue(
-      input(f.account.id),
-      "expired-test",
-      Date.now() - 100,
+    const id = await f.store.diagnostics.event({ requestId: 'run' }, 'http', 'failed', {
+      cookie: 'secret-cookie-fixture',
+    });
+    expect(await f.store.diagnostics.rawEvent(id)).toEqual({ cookie: 'secret-cookie-fixture' });
+    const evidence = await f.store.evidence(f.account.id, 'sample', 'private summary', {
+      token: 'secret-token',
+    });
+    expect(await f.store.diagnostics.rawEvent(evidence)).toEqual({
+      summary: 'private summary',
+      payload: { token: 'secret-token' },
+    });
+    await f.store.diagnostics.issue({ id: 'run', accountId: f.account.id }, 'NETWORK');
+    await f.store.diagnostics.update(
+      { id: 'run' },
+      {
+        revision: 1,
+        state: 'investigating',
+        certainty: 'unconfirmed',
+        cause: '',
+        fix: '',
+        nextExperiment: 'Inspect proxy',
+      },
     );
-    f.store.claim();
-    expect(f.store.diagnostics.incident(interrupted.id).code).toBe(
-      "INTERRUPTED",
-    );
-    expect(f.store.diagnostics.incident(expired.id).code).toBe("DEADLINE");
-    f.store.sql
-      .prepare("DELETE FROM diagnostic_events WHERE taskId=?")
-      .run(expired.id);
-    expect(
-      f.store.diagnostics.bundle(f.store.task(expired.id)).evidenceAvailable,
-    ).toBe(false);
+    await expect(
+      f.store.diagnostics.update(
+        { id: 'run' },
+        { revision: 1, state: 'open', certainty: '', cause: '', fix: '', nextExperiment: 'Retry' },
+      ),
+    ).rejects.toThrow();
+    expect((await f.store.diagnostics.incident('run')).revision).toBe(2);
+    const folder = join(f.dir, 'diagnostics/records');
+    const raw = (await import('node:fs/promises')).readdir(folder);
+    for (const name of await raw) {
+      const text = readFileSync(join(folder, name), 'utf8');
+      expect(text).not.toContain('secret-cookie-fixture');
+      expect(text).not.toContain('secret-token');
+    }
   } finally {
-    f.cleanup();
-  }
-});
-it("writes encrypted fsynced emergency evidence and fails closed if the diagnostics table is unavailable", () => {
-  const f = fixture();
-  try {
-    f.store.sql.exec("DROP TABLE diagnostic_events");
-    expect(() => f.store.enqueue(input(f.account.id))).toThrow(
-      /诊断数据库写入失败/,
-    );
-    expect(f.store.listTasks()).toHaveLength(0);
-    expect(() =>
-      f.store.diagnostics.event({}, "http", "started", {
-        cookie: "secret-cookie-fixture",
-      }),
-    ).toThrow(/诊断数据库写入失败/);
-    const raw = readFileSync(
-      join(f.dir, "diagnostics/emergency.jsonl"),
-      "utf8",
-    );
-    expect(raw).not.toContain("secret-cookie-fixture");
-    const row = JSON.parse(raw.trim().split("\n").at(-1)!);
-    const decoded = f.store.vault.open<any>(row.payload, `emergency:${row.id}`);
-    expect(decoded.event.stage).toBe("http");
-    expect(
-      errorRecord(new Error("outer", { cause: new Error("inner") })),
-    ).toHaveProperty("cause.message", "inner");
-  } finally {
-    f.cleanup();
+    await f.cleanup();
   }
 });

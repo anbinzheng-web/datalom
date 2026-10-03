@@ -8,12 +8,12 @@
     "node": ">=24.11 <25"
   },
   "scripts": {
-    "predev": "pnpm --filter '@datalom/server^...' build",
+    "predev": "pnpm db:generate && pnpm db:push && pnpm --filter '@datalom/server^...' build",
     "dev": "pnpm --parallel --filter @datalom/server --filter @datalom/worker --filter @datalom/admin-web --filter @datalom/web dev",
     "start": "node apps/server/dist/main.js",
     "worker": "node apps/worker/dist/main.js",
     "web:dev": "pnpm --filter @datalom/admin-web dev",
-    "build": "pnpm -r build",
+    "build": "pnpm db:generate && pnpm -r build",
     "format": "prettier --write \"apps/**/*.{ts,tsx,css,json}\" \"packages/**/*.{ts,tsx,css,json}\" \"*.{json,yaml,yml}\"",
     "format:check": "prettier --check \"apps/web/**/*.{ts,tsx,css,json}\" .prettierrc.json",
     "check": "pnpm format:check && pnpm contracts:check && tsc --noEmit && pnpm -r check",
@@ -33,28 +33,31 @@
     "dev:all": "pnpm dev",
     "contracts:generate": "tsx --conditions=datalom-source scripts/generate-contracts.mjs",
     "contracts:check": "tsx --conditions=datalom-source scripts/generate-contracts.mjs --check",
-    "test:built": "node scripts/smoke-built.mjs"
+    "test:built": "node scripts/smoke-built.mjs",
+    "db:generate": "prisma generate",
+    "db:up": "docker compose up -d postgres",
+    "db:push": "prisma db push"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.13",
+    "@datalom/network-node": "workspace:*",
+    "@datalom/platform-tiktok": "workspace:*",
+    "@datalom/server": "workspace:*",
+    "@datalom/shared": "workspace:*",
+    "@datalom/worker": "workspace:*",
     "@types/node": "^24.0.0",
+    "@types/pg": "^8.23.1",
+    "ajv": "^8.17.1",
+    "openapi-typescript": "^7.13.0",
+    "playwright": "^1.55.0",
     "prettier": "^3.9.6",
+    "prisma": "7.10.0",
+    "tough-cookie": "^6.0.0",
     "tsx": "^4.20.0",
     "typescript": "^5.9.0",
-    "vitest": "^3.2.0",
-    "playwright": "^1.55.0",
-    "@datalom/server": "workspace:*",
-    "@datalom/network-node": "workspace:*",
-    "tough-cookie": "^6.0.0",
-    "@datalom/worker": "workspace:*",
-    "openapi-typescript": "^7.13.0",
-    "ajv": "^8.17.1",
-    "@datalom/platform-tiktok": "workspace:*",
-    "@datalom/shared": "workspace:*"
+    "vitest": "^3.2.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
-      "better-sqlite3",
       "esbuild"
     ]
   }

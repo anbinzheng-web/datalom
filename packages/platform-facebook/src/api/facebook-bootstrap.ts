@@ -239,8 +239,8 @@ export async function bootstrapFacebookVideoSearchCapture(options: {
     browserUsed: false,
   });
   if (response.status !== 200) throw new LabError('SEARCH_BOOTSTRAP_HTTP_FAILED');
-  let tokens: ReturnType<typeof parseInstagramPageTokens>;
-  let template: ReturnType<typeof facebookVideoSearchTemplate>;
+  let tokens: Awaited<ReturnType<typeof parseInstagramPageTokens>>;
+  let template: Awaited<ReturnType<typeof facebookVideoSearchTemplate>>;
   try {
     tokens = parseInstagramPageTokens(response.body);
     template = facebookVideoSearchTemplate(response.body);

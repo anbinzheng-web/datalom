@@ -1,25 +1,25 @@
-import { artifactPath } from "@datalom/shared/runtime/paths";
-import { chromium, type Request, type Page } from "playwright";
-import { randomUUID, createHash } from "node:crypto";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { openStore } from "@datalom/shared/storage/runtime";
-import { errorRecord } from "@datalom/shared/runtime/diagnostics";
-import { profileConnection } from "../src/connection.ts";
-const store = openStore(),
+import { artifactPath } from '@datalom/shared/runtime/paths';
+import { chromium, type Request, type Page } from 'playwright';
+import { randomUUID, createHash } from 'node:crypto';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { openStore } from '@datalom/shared/storage/runtime';
+import { errorRecord } from '@datalom/shared/runtime/diagnostics';
+import { profileConnection } from '../src/connection.ts';
+const store = await openStore(),
   profileId = process.argv[2],
   runId = randomUUID();
-let action = "public-reel",
+let action = 'public-reel',
   stopped = false;
 const entries: any[] = [],
   pending = new Set<Promise<void>>();
 const contexts = new WeakMap<Request, any>();
-const record = (stage: string, outcome: string, data: unknown) =>
-  store.diagnostics.event({ requestId: runId }, `facebook-${stage}`, outcome, {
+const record = async (stage: string, outcome: string, data: unknown) =>
+  await store.diagnostics.event({ requestId: runId }, `facebook-${stage}`, outcome, {
     profileId,
     ...(data as object),
   });
 const flush = () => {
-  mkdirSync(artifactPath("facebook"), { recursive: true });
+  mkdirSync(artifactPath('facebook'), { recursive: true });
   writeFileSync(
     artifactPath(`facebook/capture-${runId}.json`),
     JSON.stringify(
@@ -36,8 +36,8 @@ const flush = () => {
   );
 };
 const task = (p: Promise<void>) => {
-  const safe = p.catch((e) => {
-    record("capture", "failed", { error: errorRecord(e) });
+  const safe = p.catch(async (e) => {
+    await record('capture', 'failed', { error: errorRecord(e) });
   });
   pending.add(safe);
   void safe.then(() => pending.delete(safe));
@@ -45,13 +45,13 @@ const task = (p: Promise<void>) => {
 function select(request: Request) {
   const u = new URL(request.url());
   if (
-    u.origin !== "https://www.facebook.com" ||
+    u.origin !== 'https://www.facebook.com' ||
     !/^\/api\/graphql\/?$/.test(u.pathname) ||
-    request.method() !== "POST"
+    request.method() !== 'POST'
   )
     return;
-  const form = new URLSearchParams(request.postData() ?? "");
-  const name = form.get("fb_api_req_friendly_name") ?? "";
+  const form = new URLSearchParams(request.postData() ?? '');
+  const name = form.get('fb_api_req_friendly_name') ?? '';
   if (
     !/Query$/.test(name) ||
     /Mutation|Messenger|Notification|Inbox|Chat|Settings|Security|Payments|Selling|Buying|Saved|RecentSearch/.test(
@@ -59,27 +59,19 @@ function select(request: Request) {
     )
   )
     return;
-  if (
-    !/Marketplace|Reel|Video|Comment|Replies|Profile|Page|Search|Feed|Story|UFI/.test(
-      name,
-    )
-  )
+  if (!/Marketplace|Reel|Video|Comment|Replies|Profile|Page|Search|Feed|Story|UFI/.test(name))
     return;
   return {
     name,
-    docId: form.get("doc_id"),
-    variables: form.get("variables"),
+    docId: form.get('doc_id'),
+    variables: form.get('variables'),
     formKeys: [...form.keys()],
   };
 }
 function attach(page: Page) {
   const pageId = randomUUID();
-  page.on("request", (request) => {
-    if (
-      !/^https:\/\/www\.facebook\.com\/(reel|profile\.php|[A-Za-z0-9.]+\/)/.test(
-        page.url(),
-      )
-    )
+  page.on('request', async (request) => {
+    if (!/^https:\/\/www\.facebook\.com\/(reel|profile\.php|[A-Za-z0-9.]+\/)/.test(page.url()))
       return;
     const selected = select(request);
     if (!selected) return;
@@ -93,7 +85,7 @@ function attach(page: Page) {
     contexts.set(request, meta);
     task(
       (async () => {
-        record("request", "started", {
+        await record('request', 'started', {
           ...meta,
           url: request.url(),
           method: request.method(),
@@ -103,13 +95,13 @@ function attach(page: Page) {
       })(),
     );
   });
-  page.on("response", (response) => {
+  page.on('response', async (response) => {
     const request = response.request(),
       meta = contexts.get(request);
     if (!meta) return;
     task(
       (async () => {
-        const headersId = record("headers", "received", {
+        const headersId = await record('headers', 'received', {
           ...meta,
           status: response.status(),
           headers: await response.allHeaders(),
@@ -117,26 +109,22 @@ function attach(page: Page) {
         try {
           const bytes = await response.body();
           const omitted = bytes.length > 12 * 1024 * 1024;
-          const evidenceId = record(
-            "http",
-            omitted ? "body-too-large" : "received",
-            {
-              ...meta,
-              url: response.url(),
-              method: request.method(),
-              requestBody: request.postData(),
-              requestHeaders: await request.allHeaders(),
-              responseHeaders: await response.allHeaders(),
-              status: response.status(),
-              body: omitted ? undefined : bytes.toString("utf8"),
-              bytes: bytes.length,
-              sha256: createHash("sha256").update(bytes).digest("hex"),
-              headersId,
-            },
-          );
+          const evidenceId = await record('http', omitted ? 'body-too-large' : 'received', {
+            ...meta,
+            url: response.url(),
+            method: request.method(),
+            requestBody: request.postData(),
+            requestHeaders: await request.allHeaders(),
+            responseHeaders: await response.allHeaders(),
+            status: response.status(),
+            body: omitted ? undefined : bytes.toString('utf8'),
+            bytes: bytes.length,
+            sha256: createHash('sha256').update(bytes).digest('hex'),
+            headersId,
+          });
           let variableKeys: string[] = [];
           try {
-            variableKeys = Object.keys(JSON.parse(meta.variables ?? "{}"));
+            variableKeys = Object.keys(JSON.parse(meta.variables ?? '{}'));
           } catch {}
           const item = {
             name: meta.name,
@@ -152,7 +140,7 @@ function attach(page: Page) {
           flush();
           console.log(JSON.stringify(item));
         } catch (error) {
-          record("http", "capture-failed", {
+          await record('http', 'capture-failed', {
             ...meta,
             headersId,
             error: errorRecord(error),
@@ -161,18 +149,19 @@ function attach(page: Page) {
       })(),
     );
   });
-  page.on("requestfailed", (request) => {
+  page.on('requestfailed', async (request) => {
     const meta = contexts.get(request);
-    if (meta)
-      record("request", "failed", { ...meta, failure: request.failure() });
+    if (meta) await record('request', 'failed', { ...meta, failure: request.failure() });
   });
-  page.on("pageerror", (error) =>
-    record("page", "error", {
-      pageId,
-      action,
-      pageUrl: page.url(),
-      error: errorRecord(error),
-    }),
+  page.on(
+    'pageerror',
+    async (error) =>
+      await record('page', 'error', {
+        pageId,
+        action,
+        pageUrl: page.url(),
+        error: errorRecord(error),
+      }),
   );
 }
 let browser: Awaited<ReturnType<typeof chromium.connectOverCDP>> | undefined;
@@ -181,25 +170,25 @@ const stop = () => {
   stopped = true;
   finish?.();
 };
-process.once("SIGINT", stop);
-process.once("SIGTERM", stop);
+process.once('SIGINT', stop);
+process.once('SIGTERM', stop);
 try {
   const { endpoint } = await profileConnection(store, profileId);
   browser = await chromium.connectOverCDP(endpoint);
-  browser.once("disconnected", stop);
+  browser.once('disconnected', stop);
   for (const ctx of browser.contexts()) {
     ctx.pages().forEach(attach);
-    ctx.on("page", attach);
+    ctx.on('page', attach);
   }
-  record("observer", "started", { runId, browserVersion: browser.version() });
+  await record('observer', 'started', { runId, browserVersion: browser.version() });
   console.log(JSON.stringify({ ready: true, runId, pid: process.pid }));
-  process.stdin.setEncoding("utf8");
-  process.stdin.on("data", (chunk) => {
+  process.stdin.setEncoding('utf8');
+  process.stdin.on('data', async (chunk) => {
     const label = String(chunk).trim();
-    if (label === "stop") stop();
+    if (label === 'stop') stop();
     else if (/^[a-z0-9._-]{1,80}$/.test(label)) {
       action = label;
-      record("action", "labelled", { action });
+      await record('action', 'labelled', { action });
     }
   });
   if (!stopped)
@@ -207,13 +196,13 @@ try {
       finish = resolve;
     });
 } catch (error) {
-  record("observer", "failed", { error: errorRecord(error) });
+  await record('observer', 'failed', { error: errorRecord(error) });
   process.exitCode = 1;
 } finally {
   await browser?.close();
   await Promise.allSettled([...pending]);
   flush();
-  record("observer", "closed", { captures: entries.length });
-  store.close();
+  await record('observer', 'closed', { captures: entries.length });
+  await store.close();
   process.stdin.pause();
 }

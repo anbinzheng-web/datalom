@@ -1,32 +1,28 @@
-import { artifactPath } from "@datalom/shared/runtime/paths";
-import { fileURLToPath } from "node:url";
-import { sourceMode, nodeLoaderArgs } from "@datalom/shared/runtime/paths";
-import { spawn } from "node:child_process";
-import { setTimeout as delay } from "node:timers/promises";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { randomUUID } from "node:crypto";
-import { openStore } from "@datalom/shared/storage/runtime";
-import {
-  nativeEndpoints,
-  type NativeOperation,
-} from "@datalom/platform-tiktok/native";
+import { artifactPath } from '@datalom/shared/runtime/paths';
+import { fileURLToPath } from 'node:url';
+import { sourceMode, nodeLoaderArgs } from '@datalom/shared/runtime/paths';
+import { spawn } from 'node:child_process';
+import { setTimeout as delay } from 'node:timers/promises';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { openStore } from '@datalom/shared/storage/runtime';
+import { nativeEndpoints, type NativeOperation } from '@datalom/platform-tiktok/native';
 
 // A local regression manifest containing capture IDs, never arbitrary URLs or scripts.
-const cases = JSON.parse(readFileSync(process.argv[2], "utf8")) as {
+const cases = JSON.parse(readFileSync(process.argv[2], 'utf8')) as {
   operation: NativeOperation;
   captureId: string;
   pages?: number;
 }[];
-const account = process.argv[3] ?? "TikTok1";
-const store = openStore();
+const account = process.argv[3] ?? 'TikTok1';
+const store = await openStore();
 const results: any[] = [];
 const runId = randomUUID();
-mkdirSync(artifactPath("tiktok-native"), { recursive: true });
+mkdirSync(artifactPath('tiktok-native'), { recursive: true });
 try {
   for (const c of cases) {
-    if (!Object.hasOwn(nativeEndpoints, c.operation))
-      throw Error("Unknown operation");
-    const capture: any = store.diagnostics.rawEvent(c.captureId);
+    if (!Object.hasOwn(nativeEndpoints, c.operation)) throw Error('Unknown operation');
+    const capture: any = await store.diagnostics.rawEvent(c.captureId);
     const url = new URL(capture.url);
     const fields = nativeEndpoints[c.operation].fields as readonly string[];
     const params = Object.fromEntries(
@@ -36,38 +32,38 @@ try {
       process.execPath,
       [
         ...nodeLoaderArgs(),
-        fileURLToPath(new URL(sourceMode ? "./native-run.ts" : "./native-run.js", import.meta.url)),
+        fileURLToPath(new URL(sourceMode ? './native-run.ts' : './native-run.js', import.meta.url)),
         account,
         c.operation,
         c.captureId,
         JSON.stringify(params),
         String(c.pages ?? 1),
       ],
-      { stdio: ["ignore", "pipe", "pipe"] },
+      { stdio: ['ignore', 'pipe', 'pipe'] },
     );
-    let stdout = "",
-      stderr = "";
-    child.stdout.on("data", (x) => {
+    let stdout = '',
+      stderr = '';
+    child.stdout.on('data', (x) => {
       stdout += x;
     });
-    child.stderr.on("data", (x) => {
+    child.stderr.on('data', (x) => {
       stderr += x;
     });
     const code = await new Promise<number | null>((resolve, reject) => {
-      child.once("error", reject);
-      child.once("exit", resolve);
+      child.once('error', reject);
+      child.once('exit', resolve);
     });
     let result: any;
     try {
       result = JSON.parse(stdout);
     } catch {
-      const evidenceId = store.diagnostics.event(
+      const evidenceId = await store.diagnostics.event(
         { requestId: runId },
-        "native-regression-child",
-        "failed",
+        'native-regression-child',
+        'failed',
         { code, stdout, stderr },
       );
-      result = { operation: c.operation, status: "failed", evidenceId, code };
+      result = { operation: c.operation, status: 'failed', evidenceId, code };
     }
     results.push(result);
     writeFileSync(
@@ -85,12 +81,12 @@ try {
       }),
     );
     // Fail closed on account challenges/rate limits; no account switching or retries.
-    if (result.status !== "succeeded") {
+    if (result.status !== 'succeeded') {
       process.exitCode = 1;
       break;
     }
     await delay(3100);
   }
 } finally {
-  store.close();
+  await store.close();
 }

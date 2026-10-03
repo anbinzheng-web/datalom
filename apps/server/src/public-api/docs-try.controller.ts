@@ -1,3 +1,4 @@
+import { managementToken } from '@datalom/shared/runtime/config';
 import { Body, Controller, HttpException, Inject, Post, Req } from '@nestjs/common';
 import { timingSafeEqual } from 'node:crypto';
 import type { FastifyRequest } from 'fastify';
@@ -15,8 +16,8 @@ export class DocsTryController {
       ? req.headers.authorization.slice(7)
       : '';
     const session = req.headers['x-datalom-session'];
-    const user = typeof session === 'string' ? this.store.userForSession(session) : null;
-    const token = this.store.getSetting<string>('auth') ?? '';
+    const user = typeof session === 'string' ? await this.store.userForSession(session) : null;
+    const token = managementToken();
     const a = Buffer.from(supplied);
     const b = Buffer.from(token);
     const machine = Boolean(token && supplied && a.length === b.length && timingSafeEqual(a, b));
@@ -27,7 +28,11 @@ export class DocsTryController {
     const path = 'path' in body ? body.path : undefined;
     const query = 'query' in body ? body.query : undefined;
     const payload = 'body' in body ? body.body : undefined;
-    if ((method !== 'GET' && method !== 'POST') || typeof path !== 'string' || !pathPattern.test(path))
+    if (
+      (method !== 'GET' && method !== 'POST') ||
+      typeof path !== 'string' ||
+      !pathPattern.test(path)
+    )
       throw new HttpException({ error: { message: '接口不在文档目录中' } }, 400);
     if (method === 'POST' && path !== '/api/v1/doubao/web/chat/completion')
       throw new HttpException({ error: { message: '该接口不接受请求体' } }, 400);

@@ -61,7 +61,7 @@ export type Snapshot = {
   deviceId: string;
   startedAt: string;
   nodeVersion: string;
-  storage: 'sqlite+json';
+  storage: 'postgresql+json';
   capabilities: string[];
   runningTaskCount: number;
 };

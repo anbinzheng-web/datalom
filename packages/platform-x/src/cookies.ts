@@ -1,11 +1,12 @@
-import { CookieJar, Cookie, domainMatch } from "tough-cookie";
-import { cookieJar } from "@datalom/network-node/cookies";
-import { DatalomError, type BrowserCookie } from "@datalom/shared/runtime/contracts";
-import type { Trace } from "@datalom/shared/runtime/diagnostics";
-import type { XSession } from "./session.ts";
+import { CookieJar, Cookie, domainMatch } from 'tough-cookie';
+import { cookieJar } from '@datalom/network-node/cookies';
+import { DatalomError, type BrowserCookie } from '@datalom/shared/runtime/contracts';
+import type { Trace } from '@datalom/shared/runtime/diagnostics';
+import type { XSession } from './session.ts';
 // This executor supports exactly one top-level context. Partitioned cookies
 // never enter the ordinary jar, and both stores survive response updates.
 export class XCookies {
+  private pendingTrace: Promise<unknown>[] = [];
   private normal: CookieJar;
   private partition: CookieJar;
   constructor(
@@ -13,36 +14,35 @@ export class XCookies {
     private trace: Trace,
   ) {
     const matched: BrowserCookie[] = [];
-    for (const c of session.cookies.filter(
-      (c) => c.partitionKey || c.partitionKeyOpaque,
-    )) {
+    for (const c of session.cookies.filter((c) => c.partitionKey || c.partitionKeyOpaque)) {
       const p = c.partitionKey;
       if (
         c.partitionKeyOpaque ||
         !p ||
-        typeof p === "string" ||
-        typeof p.hasCrossSiteAncestor !== "boolean"
+        typeof p === 'string' ||
+        typeof p.hasCrossSiteAncestor !== 'boolean'
       )
-        throw new DatalomError("RESEARCH_REQUIRED", "Cookie 分区上下文不完整");
-      if (p.topLevelSite === "https://x.com" && !p.hasCrossSiteAncestor) {
-        if (!c.secure)
-          throw new DatalomError(
-            "SCHEMA_CHANGED",
-            "Partitioned Cookie 必须 Secure",
-          );
+        throw new DatalomError('RESEARCH_REQUIRED', 'Cookie 分区上下文不完整');
+      if (p.topLevelSite === 'https://x.com' && !p.hasCrossSiteAncestor) {
+        if (!c.secure) throw new DatalomError('SCHEMA_CHANGED', 'Partitioned Cookie 必须 Secure');
         matched.push({ ...c, partitionKey: undefined });
       } else
-        trace("x-cookie", "excluded", {
-          name: c.name,
-          reason: "partition-context-mismatch",
-          partitionKey: p,
-        });
+        this.pendingTrace.push(
+          Promise.resolve(
+            trace('x-cookie', 'excluded', {
+              name: c.name,
+              reason: 'partition-context-mismatch',
+              partitionKey: p,
+            }),
+          ).catch((error) => {
+            throw error;
+          }),
+        );
     }
+    for (const pending of this.pendingTrace) void pending.catch(() => {});
     this.normal = cookieJar({
       ...session,
-      cookies: session.cookies.filter(
-        (c) => !c.partitionKey && !c.partitionKeyOpaque,
-      ),
+      cookies: session.cookies.filter((c) => !c.partitionKey && !c.partitionKeyOpaque),
     });
     this.partition = cookieJar({
       ...session,
@@ -51,45 +51,38 @@ export class XCookies {
     });
   }
   private guard(url: string) {
-    if (new URL(url).origin !== "https://x.com")
-      throw new DatalomError("INVALID_INPUT", "Cookie 仅用于 X 同源顶层上下文");
+    if (new URL(url).origin !== 'https://x.com')
+      throw new DatalomError('INVALID_INPUT', 'Cookie 仅用于 X 同源顶层上下文');
   }
   async getCookies(url: string) {
+    await Promise.all(this.pendingTrace);
     this.guard(url);
-    return [
-      ...(await this.normal.getCookies(url)),
-      ...(await this.partition.getCookies(url)),
-    ];
+    return [...(await this.normal.getCookies(url)), ...(await this.partition.getCookies(url))];
   }
   async getCookieString(url: string) {
     return (await this.getCookies(url))
       .sort((a, b) => (b.path?.length ?? 0) - (a.path?.length ?? 0))
       .map((c) => c.cookieString())
-      .join("; ");
+      .join('; ');
   }
   async update(values: string[], url: string) {
     this.guard(url);
     for (const value of values) {
       const c = Cookie.parse(value);
-      if (!c) throw new DatalomError("SCHEMA_CHANGED", "Set-Cookie 无法解析");
+      if (!c) throw new DatalomError('SCHEMA_CHANGED', 'Set-Cookie 无法解析');
       if (c.domain && !domainMatch(new URL(url).hostname, c.domain)) {
-        this.trace("x-cookie", "rejected", {
+        await this.trace('x-cookie', 'rejected', {
           name: c.key,
-          reason: "domain-mismatch",
+          reason: 'domain-mismatch',
         });
         continue;
       }
       const partitioned = /;\s*partitioned\b/i.test(value);
       if (partitioned && !c.secure)
-        throw new DatalomError(
-          "SCHEMA_CHANGED",
-          "Partitioned Cookie 必须 Secure",
-        );
+        throw new DatalomError('SCHEMA_CHANGED', 'Partitioned Cookie 必须 Secure');
       await (partitioned ? this.partition : this.normal).setCookie(c, url);
     }
     this.session.cookieJar = JSON.stringify(this.normal.serializeSync());
-    this.session.partitionCookieJar = JSON.stringify(
-      this.partition.serializeSync(),
-    );
+    this.session.partitionCookieJar = JSON.stringify(this.partition.serializeSync());
   }
 }

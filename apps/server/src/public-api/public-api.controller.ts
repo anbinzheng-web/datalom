@@ -6,8 +6,8 @@ import { PublicApiService } from './public-api.service.js';
 export class PublicApiController {
   constructor(@Inject(PublicApiService) private readonly api: PublicApiService) {}
   @Get('openapi.json')
-  specification(@Req() req: FastifyRequest, @Res({ passthrough: true }) reply: FastifyReply) {
-    this.api.authenticate(req, reply);
+  async specification(@Req() req: FastifyRequest, @Res({ passthrough: true }) reply: FastifyReply) {
+    await this.api.authenticate(req, reply);
     return publicSpecification();
   }
 }

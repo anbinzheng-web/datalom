@@ -29,13 +29,13 @@ export class YoutubeService {
     @Inject(Store) private readonly store: Store,
     @Inject(PublicApiService) private readonly api: PublicApiService,
   ) {}
-  request(
+  async request(
     operation: string,
     query: Record<string, unknown>,
     req: FastifyRequest,
     reply: FastifyReply,
   ) {
-    const auth = this.api.authenticate(req, reply);
+    const auth = await this.api.authenticate(req, reply);
     const search = operation === 'search.videos',
       paginated = operation !== 'video.detail';
     const name = search ? 'keyword' : 'video_id';
@@ -58,27 +58,28 @@ export class YoutubeService {
       parameters: { [name]: subject },
       cursor: query.cursor as string | undefined,
       paginated,
-      acquire: (pinned) => {
-        for (const account of this.store.listAccounts()) {
+      acquire: async (pinned) => {
+        for (const account of await this.store.listAccounts()) {
           if (account.platform.toLowerCase() !== 'youtube' || (pinned && pinned !== account.id))
             continue;
-          const lease = this.store.lease(account.id);
+          const lease = await this.store.lease(account.id);
           if (!lease) continue;
           return {
             account: account.id,
-            renew: () => this.store.renew(account.id, lease),
-            release: (cooldown) => {
+            renew: async () => await this.store.renew(account.id, lease),
+            release: async (cooldown) => {
               try {
-                if (cooldown > 3000) this.store.coolDownAccount(account.id, '公开 API 上游异常');
-                this.store.scheduleNext(account.id, lease, cooldown);
+                if (cooldown > 3000)
+                  await this.store.coolDownAccount(account.id, '公开 API 上游异常');
+                await this.store.scheduleNext(account.id, lease, cooldown);
               } finally {
-                this.store.release(account.id, lease);
+                await this.store.release(account.id, lease);
               }
             },
             run: async (signal, state) => {
-              const session = this.store.getSecret(account.id);
-              const trace = (stage: string, outcome: string, payload: unknown) => {
-                this.store.diagnostics.event(
+              const session = await this.store.getSecret(account.id);
+              const trace = async (stage: string, outcome: string, payload: unknown) => {
+                await this.store.diagnostics.event(
                   { requestId: auth.id, accountId: account.id },
                   stage,
                   outcome,
@@ -102,7 +103,7 @@ export class YoutubeService {
                 ) => {
                   if (!protocol.youtubeUrlAllowed(new URL(target), method))
                     throw new DatalomError('INVALID_INPUT', '不允许的 YouTube 路径');
-                  const wait = this.store.reserveRate(account.id, lease, operation, 3000);
+                  const wait = await this.store.reserveRate(account.id, lease, operation);
                   if (wait)
                     await new Promise<void>((resolve, reject) => {
                       const done = () => {
@@ -127,8 +128,8 @@ export class YoutubeService {
                     signal,
                   });
                   connection.save();
-                  this.store.saveSecret(account.id, account.version, session, lease);
-                  trace('youtube-public-http', 'received', {
+                  await this.store.saveSecret(account.id, account.version, session, lease);
+                  await trace('youtube-public-http', 'received', {
                     status: response.status,
                     body: response.body,
                   });

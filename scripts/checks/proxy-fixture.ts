@@ -1,9 +1,9 @@
-import { createServer as httpServer, get } from "node:http";
-import { connect, type Socket } from "node:net";
-import type { Server } from "node:http";
+import { createServer as httpServer, get } from 'node:http';
+import { connect, type Socket } from 'node:net';
+import type { Server } from 'node:http';
 export async function listen(s: Server): Promise<number> {
   return new Promise((resolve) =>
-    s.listen(0, "127.0.0.1", () => resolve((s.address() as any).port)),
+    s.listen(0, '127.0.0.1', () => resolve((s.address() as any).port)),
   );
 }
 export async function chainFixture() {
@@ -11,40 +11,40 @@ export async function chainFixture() {
     sockets = new Set<Socket>();
   let requests = 0;
   const track = (s: Server) =>
-    s.on("connection", (socket) => {
+    s.on('connection', (socket) => {
       sockets.add(socket);
-      socket.on("close", () => sockets.delete(socket));
+      socket.on('close', () => sockets.delete(socket));
     });
   const destination = httpServer((_, r) => {
     requests++;
-    r.setHeader("Content-Type", "application/json");
-    r.end(JSON.stringify({ ok: true, payload: "x".repeat(1024) }));
+    r.setHeader('Content-Type', 'application/json');
+    r.end(JSON.stringify({ ok: true, payload: 'x'.repeat(1024) }));
   });
   track(destination);
   const targetPort = await listen(destination);
   const proxy = (name: string) => {
     const s = httpServer();
     track(s);
-    s.on("connect", (req, client, head) => {
+    s.on('connect', (req, client, head) => {
       events.push(`${name}:${req.url}`);
-      const [host, port] = req.url!.split(":");
+      const [host, port] = req.url!.split(':');
       const remote = connect({ host, port: Number(port) }, () => {
-        client.write("HTTP/1.1 200 Connection Established\r\n\r\n");
+        client.write('HTTP/1.1 200 Connection Established\r\n\r\n');
         if (head.length) remote.write(head);
         client.pipe(remote);
         remote.pipe(client);
       });
       sockets.add(remote);
-      remote.on("close", () => sockets.delete(remote));
-      remote.on("error", () => client.destroy());
-      client.on("error", () => remote.destroy());
-      client.on("close", () => remote.destroy());
+      remote.on('close', () => sockets.delete(remote));
+      remote.on('error', () => client.destroy());
+      client.on('error', () => remote.destroy());
+      client.on('close', () => remote.destroy());
     });
     return s;
   };
-  const downstream = proxy("account"),
+  const downstream = proxy('account'),
     downstreamPort = await listen(downstream),
-    upstream = proxy("upstream"),
+    upstream = proxy('upstream'),
     upstreamPort = await listen(upstream);
   const close = async (s: Server) => {
     await new Promise<void>((resolve) => s.close(() => resolve()));
@@ -55,24 +55,21 @@ export async function chainFixture() {
     upstreamPort,
     downstreamPort,
     requests: () => requests,
+    async breakAccount() {
+      for (const socket of sockets) socket.destroy();
+      await close(downstream);
+    },
     async breakUpstream() {
       for (const socket of sockets) socket.destroy();
       await close(upstream);
     },
     async close() {
       for (const socket of sockets) socket.destroy();
-      await Promise.all([
-        close(destination),
-        close(downstream),
-        close(upstream),
-      ]);
+      await Promise.all([close(destination), close(downstream), close(upstream)]);
     },
   };
 }
-export async function proxyGet(
-  proxyUrl: string,
-  targetPort: number,
-): Promise<number> {
+export async function proxyGet(proxyUrl: string, targetPort: number): Promise<number> {
   const p = new URL(proxyUrl);
   return new Promise((resolve, reject) => {
     const r = get(
@@ -85,10 +82,10 @@ export async function proxyGet(
       },
       (res) => {
         res.resume();
-        res.on("end", () => resolve(res.statusCode!));
+        res.on('end', () => resolve(res.statusCode!));
       },
     );
-    r.on("error", reject);
-    r.on("timeout", () => r.destroy(new Error("timeout")));
+    r.on('error', reject);
+    r.on('timeout', () => r.destroy(new Error('timeout')));
   });
 }

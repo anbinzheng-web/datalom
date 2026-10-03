@@ -1,26 +1,23 @@
-import { openStore } from "@datalom/shared/storage/runtime";
-import {
-  decodeGnarly,
-  decodeDynosaur,
-} from "@datalom/platform-tiktok/signature-codec";
-const s = openStore();
+import { openStore } from '@datalom/shared/storage/runtime';
+import { decodeGnarly, decodeDynosaur } from '@datalom/platform-tiktok/signature-codec';
+const s = await openStore();
 try {
-  for (const a of s.listAccounts()) {
-    const t = s.getSecret(a.id).research?.requestTemplates?.["video.comments"];
+  for (const a of await s.listAccounts()) {
+    const t = (await s.getSecret(a.id)).research?.requestTemplates?.['video.comments'];
     if (!t) continue;
     const u = new URL(t.url);
     for (const [name, decode] of [
-      ["X-Gnarly", decodeGnarly],
-      ["X-Dynosaur", decodeDynosaur],
+      ['X-Gnarly', decodeGnarly],
+      ['X-Dynosaur', decodeDynosaur],
     ] as const) {
       try {
         const fields = decode(u.searchParams.get(name)!);
-        console.log(JSON.stringify({ account: a.label, name, fields }));
+        console.log(JSON.stringify({ account: a.id, name, fields }));
       } catch (e) {
-        console.log({ account: a.label, name, error: (e as Error).message });
+        console.log({ account: a.id, name, error: (e as Error).message });
       }
     }
   }
 } finally {
-  s.close();
+  await s.close();
 }

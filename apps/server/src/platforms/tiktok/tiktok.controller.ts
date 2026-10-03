@@ -5,7 +5,7 @@ import { TikTokService } from './tiktok.service.js';
 export class TikTokController {
   constructor(@Inject(TikTokService) private readonly service: TikTokService) {}
   @Get('user/detail')
-  user_detail(
+  async user_detail(
     @Query() query: Record<string, unknown>,
     @Req() req: FastifyRequest,
     @Res({ passthrough: true }) reply: FastifyReply,
@@ -13,7 +13,7 @@ export class TikTokController {
     return this.service.request('user/detail', query, req, reply);
   }
   @Get('user/posts')
-  user_posts(
+  async user_posts(
     @Query() query: Record<string, unknown>,
     @Req() req: FastifyRequest,
     @Res({ passthrough: true }) reply: FastifyReply,
@@ -21,7 +21,7 @@ export class TikTokController {
     return this.service.request('user/posts', query, req, reply);
   }
   @Get('video/detail')
-  video_detail(
+  async video_detail(
     @Query() query: Record<string, unknown>,
     @Req() req: FastifyRequest,
     @Res({ passthrough: true }) reply: FastifyReply,
@@ -29,7 +29,7 @@ export class TikTokController {
     return this.service.request('video/detail', query, req, reply);
   }
   @Get('video/comments')
-  video_comments(
+  async video_comments(
     @Query() query: Record<string, unknown>,
     @Req() req: FastifyRequest,
     @Res({ passthrough: true }) reply: FastifyReply,
@@ -37,7 +37,7 @@ export class TikTokController {
     return this.service.request('video/comments', query, req, reply);
   }
   @Get('comment/replies')
-  comment_replies(
+  async comment_replies(
     @Query() query: Record<string, unknown>,
     @Req() req: FastifyRequest,
     @Res({ passthrough: true }) reply: FastifyReply,
@@ -45,7 +45,7 @@ export class TikTokController {
     return this.service.request('comment/replies', query, req, reply);
   }
   @Get('search/videos')
-  search_videos(
+  async search_videos(
     @Query() query: Record<string, unknown>,
     @Req() req: FastifyRequest,
     @Res({ passthrough: true }) reply: FastifyReply,

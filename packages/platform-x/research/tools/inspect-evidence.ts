@@ -1,31 +1,31 @@
-import { openStore } from "@datalom/shared/storage/runtime";
-const s = openStore();
+import { openStore } from '@datalom/shared/storage/runtime';
+const s = await openStore();
 for (const id of process.argv.slice(2)) {
-  const c = s.diagnostics.rawEvent(id) as any;
+  const c = (await s.diagnostics.rawEvent(id)) as any;
   const u = new URL(c.url);
   const j = JSON.parse(c.body);
   const paths: any[] = [];
   function walk(v: any, path: string) {
-    if (!v || typeof v !== "object") return;
+    if (!v || typeof v !== 'object') return;
     if (Array.isArray(v)) {
       paths.push({
         path,
         length: v.length,
         firstKeys: Object.keys(v[0] ?? {}),
       });
-      if (v[0]) walk(v[0], path + "[0]");
+      if (v[0]) walk(v[0], path + '[0]');
       return;
     }
-    for (const [k, x] of Object.entries(v)) walk(x, path + "." + k);
+    for (const [k, x] of Object.entries(v)) walk(x, path + '.' + k);
   }
-  walk(j, "$");
+  walk(j, '$');
   console.log(
     JSON.stringify(
       {
         id,
         name: c.name,
         method: c.method,
-        variables: u.searchParams.get("variables"),
+        variables: u.searchParams.get('variables'),
         paths,
       },
       null,
@@ -33,4 +33,4 @@ for (const id of process.argv.slice(2)) {
     ),
   );
 }
-s.close();
+await s.close();

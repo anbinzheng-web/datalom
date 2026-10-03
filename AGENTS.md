@@ -13,7 +13,7 @@
 | `apps/server`                  | NestJS API、认证、账号管理与平台请求；旧 Fastify 路由由 legacy 模块接入 |
 | `apps/web`                     | Next.js 官网、文档展示和用户入口                                        |
 | `apps/admin-web`               | React + Ant Design 内部管理后台                                         |
-| `apps/worker`                  | 独立进程边界；当前仅心跳，不领取或执行任务                              |
+| `apps/worker`                  | 独立进程边界；当前仅记录进程启停，不领取或执行任务                              |
 | `packages/platform-*/src`      | 平台协议、签名、解析和独立 HTTP 实现                                    |
 | `packages/platform-*/research` | 独立 `@datalom/research-*` workspace，浏览器采样、分析及研究 CLI        |
 | `packages/platform-runtime`    | 多平台执行中复用的传输、账号及协议基础能力                              |
@@ -21,7 +21,7 @@
 | `packages/network-node`        | 账号代理线路、Cookie 和网络检测                                         |
 | `scripts`                      | 构建、自动化、配置和跨包检查                                            |
 
-研究包依赖平台实现；平台生产入口不依赖研究包、Playwright、Roxy SDK 或 CDP。目录放在一起不改变依赖方向。平台能力由 server 的模块和具体执行器决定，账号能保存不代表该平台全部接口已接通。存储层存在旧队列模型也不代表 Worker 已执行这些任务。
+研究包依赖平台实现；平台生产入口不依赖研究包、Playwright、Roxy SDK 或 CDP。目录放在一起不改变依赖方向。平台能力由 server 的模块和具体执行器决定，账号能保存不代表该平台全部接口已接通。旧数据库任务队列及入队接口已移除，Worker 尚未承担任务执行。
 
 shared 不提供聚合根入口：前端仅引用 `@datalom/shared/api` 和品牌资源；Node 实现引用 `@datalom/shared/runtime/*`、`@datalom/shared/storage/*`。API 模块不得导入 storage/runtime，避免把原生依赖带入浏览器。合包后依赖统一安装，运行时仍按子路径加载。
 
@@ -29,7 +29,9 @@ shared 不提供聚合根入口：前端仅引用 `@datalom/shared/api` 和品�
 
 server 拥有 API 定义，shared/api 只接收生成产物；controller 负责协议适配，服务负责业务编排，平台包负责原站协议。本机管理认证与公开 API Key 分离。
 
-本机会话和证据由 storage 管理；网络请求沿用账号代理和平台 transport。配置位于 Git 跟踪的 `scripts/config/roxy.json`；本机数据默认 `.datalom`，报告通过 `artifactPath()` 定位，禁止依赖当前工作目录。共享资源放 packages，构建与自动化放 scripts。
+结构化数据统一使用 PostgreSQL，通过 Prisma 及参数化 SQL 访问；模型位于 `packages/shared/prisma`，存储接口为异步，调用方必须等待持久化、租约及诊断操作完成。平台 Session 统一存于 `platform_sessions`，平台差异内容为 JSON；不按平台新增会话表。采集账号位于 `platform_accounts`，通过 proxyId 关联 `proxies`；代理密码明文存储，检测结果保存明文 JSON。租约与冷却复用 `platform_sessions`；请求间隔统一读取 `DATALOM_ACCOUNT_INTERVAL_MS`，原因写本地日志，账号表不保存名称、备注或逐账号间隔。系统连接配置通过环境变量提供，可重建的平台缓存归 `platform_cache`。诊断事件、证据、故障跟踪保存本机 JSON 文件；指标在内存聚合后写本地文件，限流仅保存在进程内存。不得在请求热路径逐条写日志表或使用全局事务锁。钱包余额、资金流水及每日费用属于业务账务，保存在 PostgreSQL；金额使用整数最小单位，批次入账须幂等且在事务内完成，不能使用易失内存作为账务来源。
+
+本机会话和证据由 storage 管理；网络请求沿用账号代理和平台 transport。系统连接使用 `ROXY_HOST`、`ROXY_WORKSPACE_ID`、`ROXY_API_KEY`；批量采集 Profile 清单位于 `scripts/config/roxy.json`；本机数据默认 `.datalom`，报告通过 `artifactPath()` 定位，禁止依赖当前工作目录。共享资源放 packages，构建与自动化放 scripts。
 
 平台研究包保持 `@datalom/research-*` 导出兼容。web 使用 Next.js + React + TypeScript + Tailwind CSS，复用现有组件和设计 token；普通样式直接写在 JSX 的 Tailwind 工具类中，不以原生 CSS 或成组 `@apply` 选择器代替。原生 CSS 仅用于复杂动画、复杂视觉效果和必要的全局基础定义，详细边界见官网视觉规范。admin-web 复用 Ant Design；共享品牌资产只改 packages/shared/brand。
 
@@ -53,3 +55,5 @@ server 拥有 API 定义，shared/api 只接收生成产物；controller 负责�
 `AGENTS.md` 维护架构总览、依赖方向和 coding agent 必须遵守的开发约定。`docs` 按需记录细分设计、决策理由、专题说明及其他长期有用的资料，不重复维护总览；专题入口见 [文档索引](docs/architecture.md)。
 
 平台协议经验放对应 research/README.md；应用局部约定放应用 README。文档以帮助理解、实现和维护为目的，不要求每次改动都新增文档。避免逐次运行流水账、测试数量、截图清单和重复接口表；机器产物放本机数据目录，当前接口清单由 server 生成。规划须明确标注尚未实现，架构变化时更新本文件及受影响专题。
+
+存储加密已取消：账号 payload、代理密码及本地诊断记录使用明文 JSON/文本；历史密文仅保留兼容解码，不再产生新密文。用户登录密码继续使用随机 16 字节盐的 scrypt（32 字节派生值），JWT 签名和验证令牌/API Key 摘要保持不变。签名密钥仍保存在系统凭据库。本地历史诊断兼容读取不等于已全部转写。

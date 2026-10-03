@@ -23,3 +23,29 @@ it('checks extracted proxy without a two-hop route and rejects invalid IP respon
   fetch.mockResolvedValue({ status: 200, json: async () => ({ ip: 'invalid' }) });
   await expect(checkProxy(secret, createClient, openRoute)).rejects.toThrow('代理检测失败');
 });
+
+it('retains provider JSON, HTTP failures and safe route errors', async () => {
+  fetch.mockResolvedValue({
+    status: 200,
+    json: async () => ({ ip: '203.0.113.4', country: 'example', extra: { score: 42 } }),
+  });
+  expect(await checkProxy(session(), createClient, openRoute)).toMatchObject({
+    provider: 'ipify',
+    httpStatus: 200,
+    data: { extra: { score: 42 } },
+  });
+  fetch.mockResolvedValue({ status: 429, json: async () => ({ message: 'quota exceeded' }) });
+  await expect(checkProxy(session(), createClient, openRoute)).rejects.toMatchObject({
+    result: {
+      provider: 'ipify',
+      httpStatus: 429,
+      error: 'HTTP_ERROR',
+      data: { message: 'quota exceeded' },
+    },
+  });
+  await expect(
+    checkProxy(session(), createClient, async () => {
+      throw Error('secret-proxy-fixture');
+    }),
+  ).rejects.toMatchObject({ result: { httpStatus: null, error: 'ROUTE_FAILED' } });
+});
